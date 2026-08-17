@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from .const import (
     COMMAND_QUEUE,
     CONF_DEVICE_ID,
+    CONF_DEVICE_KEY,
     CONF_PROXY_MODE,
     DATA_COORDINATOR,
     DOMAIN,
@@ -55,7 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         proxy_state = hass.data[DOMAIN].get(PROXY_STATE)
         if proxy_state is None:
-            proxy_state = {"devices": {}, "hosts": {}, "pending": {}}
+            proxy_state = {"devices": {}, "hosts": {}, "pending": {}, "hass": hass}
             hass.data[DOMAIN][PROXY_STATE] = proxy_state
             hass.http.register_view(StoveRegisterView(proxy_state))
             hass.http.register_view(StoveCommandsView(proxy_state))
@@ -69,6 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "cloud_session": cloud_session,
             "host": host,
             "entry_id": entry.entry_id,
+            "device_key": entry.data.get(CONF_DEVICE_KEY),
         }
 
         if device_id:

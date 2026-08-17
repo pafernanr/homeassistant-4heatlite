@@ -13,7 +13,14 @@ import aiohttp
 from homeassistant.components.http import HomeAssistantView
 
 from .api import FourHeatLiteApi
-from .const import CLOUD_API_HOST, CLOUD_API_IP, CLOUD_API_PORT, PROXY_MODE_CLOUD
+from .const import (
+    CLOUD_API_HOST,
+    CLOUD_API_IP,
+    CLOUD_API_PORT,
+    CONF_DEVICE_KEY,
+    DOMAIN,
+    PROXY_MODE_CLOUD,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -101,8 +108,13 @@ class StoveRegisterView(HomeAssistantView):
                 _promote_pending(self._state, device_id, remote_ip)
             self._state.setdefault("hosts", {})[remote_ip] = device_id
 
-        cloud_key = None
         entry, _ = _lookup_device(self._state, device_id=device_id)
+
+        stored_key = entry.get("device_key") if entry else None
+        if stored_key:
+            return self.json({"Key": stored_key})
+
+        cloud_key = None
         if entry:
             cloud_session = entry.get("cloud_session")
             proxy_mode = entry.get("proxy_mode")
@@ -110,7 +122,22 @@ class StoveRegisterView(HomeAssistantView):
                 cloud_key = await self._forward_cloud(cloud_session, body)
 
         key = cloud_key or str(uuid.uuid5(uuid.NAMESPACE_DNS, device_id or "4heat"))
+
+        if entry:
+            entry["device_key"] = key
+            self._persist_device_key(entry.get("entry_id"), key)
+
         return self.json({"Key": key})
+
+    def _persist_device_key(self, entry_id, key):
+        hass = self._state.get("hass")
+        if not hass or not entry_id:
+            return
+        config_entry = hass.config_entries.async_get_entry(entry_id)
+        if config_entry and config_entry.data.get(CONF_DEVICE_KEY) != key:
+            hass.config_entries.async_update_entry(
+                config_entry, data={**config_entry.data, CONF_DEVICE_KEY: key}
+            )
 
     @staticmethod
     async def _forward_cloud(session, body):
