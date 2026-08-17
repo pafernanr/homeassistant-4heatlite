@@ -120,16 +120,19 @@ class FourHeatLiteApi:
         return ["2WC", "1", data]
 
     @staticmethod
-    def build_power_command(level: int) -> list | None:
-        """Build write command for power level. Format not yet captured."""
-        return None
+    def build_power_command(level: int) -> list:
+        """Build write command for combustion power level (register 0e/016c, range 1-7)."""
+        level = max(1, min(7, level))
+        level_hex = f"{level:04x}"
+        data = f"050e016c{level_hex}0001000700"
+        return ["2WC", "1", data]
 
     @staticmethod
-    def build_on_command() -> list | None:
-        """Build ON command. Register not yet captured."""
-        return None
+    def build_on_command() -> list:
+        """Build ON command (accensione from FileMap)."""
+        return ["2WC", "1", "05040000"]
 
     @staticmethod
-    def build_off_command() -> list | None:
-        """Build OFF command. Register not yet captured."""
-        return None
+    def build_off_command() -> list:
+        """Build OFF command (spegnimento from FileMap)."""
+        return ["2WC", "1", "05050000"]

@@ -15,7 +15,6 @@ from .const import (
     CONF_PROXY_ENABLED,
     CONF_PROXY_MODE,
     DATA_COORDINATOR,
-    DEFAULT_DEVICE_ID,
     DOMAIN,
     PROXY_MODE_CLOUD,
     PROXY_MODE_LOCAL,
@@ -40,7 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry_data = {DATA_COORDINATOR: coordinator}
 
     if proxy_enabled:
-        device_id = entry.data.get(CONF_DEVICE_ID, DEFAULT_DEVICE_ID)
+        device_id = entry.data.get(CONF_DEVICE_ID, "")
         proxy_mode = entry.options.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
         host = entry.data[CONF_HOST]
 

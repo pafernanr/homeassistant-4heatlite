@@ -109,10 +109,7 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
             return f"Power {power}"
         return None
 
-    async def _send_command(self, cmd: list | None, desc: str) -> None:
-        if cmd is None:
-            _LOGGER.warning("%s command not yet available (register not captured)", desc)
-            return
+    async def _send_command(self, cmd: list, desc: str) -> None:
         if not self._queue:
             _LOGGER.info(
                 "%s ignored: cloud API proxy not enabled. "

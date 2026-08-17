@@ -65,7 +65,6 @@ CONF_DEVICE_ID = "device_id"
 CONF_PROXY_MODE = "proxy_mode"
 PROXY_MODE_LOCAL = "local_only"
 PROXY_MODE_CLOUD = "cloud_sync"
-DEFAULT_DEVICE_ID = ""
 CLOUD_API_HOST = "wifi4heat-linux.azurewebsites.net"
 CLOUD_API_PORT = 80
 COMMAND_QUEUE = "command_queue"
