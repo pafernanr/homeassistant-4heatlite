@@ -1,0 +1,29 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "4HEAT Lite Stove",
+        "description": "Set up your 4HEAT Lite WiFi module.",
+        "data": {
+          "name": "Stove name",
+          "host": "Host (IP address of 4HEAT Lite module)",
+          "proxy_enabled": "Enable cloud API proxy (requires DNS redirect)",
+          "device_id": "Device ID (from 4HEAT cloud account)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to module. Verify IP and that stove is powered on.",
+      "already_configured": "This host is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "proxy_mode": "Proxy mode"
+        }
+      }
+    }
+  }
+}
