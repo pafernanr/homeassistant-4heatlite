@@ -76,6 +76,16 @@ With manual installation you will not receive update notifications.
 
 No authentication is needed — the module's local TCP API has no auth.
 
+### Finding your Device ID
+
+If you enable the cloud API proxy, you need your module's Device ID. The module sends it in every cloud request (unencrypted HTTP). Capture it from your router:
+
+```bash
+ssh root@YOUR_ROUTER "tcpdump -i br-lan -c 5 -A 'src host MODULE_IP and dst port 80'" 2>/dev/null | grep -oP 'id=\K[0-9]+'
+```
+
+Replace `YOUR_ROUTER` and `MODULE_IP` with your router and module IPs. Wait up to 60 seconds — the module polls the cloud every minute.
+
 ### Options
 
 After setup, go to the integration's options to change:
