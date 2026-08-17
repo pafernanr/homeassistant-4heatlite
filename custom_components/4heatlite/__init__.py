@@ -42,6 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if proxy_enabled:
         device_id = entry.data.get(CONF_DEVICE_ID, DEFAULT_DEVICE_ID)
         proxy_mode = entry.options.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
+        host = entry.data[CONF_HOST]
 
         command_queue = asyncio.Queue()
         entry_data[COMMAND_QUEUE] = command_queue
@@ -53,24 +54,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         coordinator.set_proxy_mode(True)
 
-        # Shared mutable state for proxy views (survives entry reloads)
         proxy_state = hass.data[DOMAIN].get(PROXY_STATE)
         if proxy_state is None:
-            proxy_state = {}
+            proxy_state = {"devices": {}, "hosts": {}, "pending": {}}
             hass.data[DOMAIN][PROXY_STATE] = proxy_state
             hass.http.register_view(StoveCommandsView(proxy_state))
             hass.http.register_view(StoveStoreView(proxy_state))
             hass.http.register_view(StoveCronView(proxy_state))
 
-        proxy_state.update(
-            {
-                "command_queue": command_queue,
-                "coordinator": coordinator,
-                "device_id": device_id,
-                "proxy_mode": proxy_mode,
-                "cloud_session": cloud_session,
-            }
-        )
+        device_entry = {
+            "queue": command_queue,
+            "coordinator": coordinator,
+            "proxy_mode": proxy_mode,
+            "cloud_session": cloud_session,
+            "host": host,
+            "entry_id": entry.entry_id,
+        }
+
+        if device_id:
+            proxy_state["devices"][device_id] = device_entry
+            proxy_state["hosts"][host] = device_id
+        else:
+            proxy_state["pending"][entry.entry_id] = device_entry
 
     hass.data[DOMAIN][entry.entry_id] = entry_data
 
@@ -100,7 +105,21 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         proxy_state = hass.data[DOMAIN].get(PROXY_STATE)
         if proxy_state:
-            proxy_state.clear()
+            proxy_state["pending"].pop(entry.entry_id, None)
+
+            remove_ids = [
+                did
+                for did, d in proxy_state["devices"].items()
+                if d.get("entry_id") == entry.entry_id
+            ]
+            for did in remove_ids:
+                proxy_state["devices"].pop(did, None)
+
+            remove_hosts = [
+                h for h, did in proxy_state["hosts"].items() if did in remove_ids
+            ]
+            for h in remove_hosts:
+                proxy_state["hosts"].pop(h, None)
 
         hass.data[DOMAIN].pop(entry.entry_id, None)
 

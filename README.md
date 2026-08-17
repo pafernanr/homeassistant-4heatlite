@@ -76,26 +76,22 @@ With manual installation you will not receive update notifications.
 
 No authentication is needed — the module's local TCP API has no auth.
 
-### Finding your Device ID
+### Multiple Stoves
 
-If you enable the cloud API proxy, you need your module's Device ID. Query the 4HEAT cloud API with your Lasian/4HEAT mobile app credentials:
+To add multiple stoves, run the "Add Integration" flow once per stove — each gets its own config entry with its own module IP. The proxy routes commands and sensor data to the correct stove using the device ID from each module's cloud polling requests. Device IDs are auto-detected independently per stove.
+
+Each module needs its own firewall DNAT rule (`src_ip` = that module's IP).
+
+### Device ID
+
+The Device ID is **auto-detected** from the first module request when the proxy is active. Leave the field empty during setup — the integration will capture it automatically once DNS redirect is in place.
+
+If you need to find it manually, check the Lasian/4HEAT mobile app (device info section) or capture one HTTP request from the module on your network:
 
 ```bash
-# Get OAuth token
-TOKEN=$(curl -s -X POST https://wifi4heat.azurewebsites.net/Token \
-  -d "grant_type=password&username=YOUR_EMAIL&password=YOUR_PASSWORD" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token','').strip())")
-
-# List your devices — try both API hosts
-curl -sv -H "Authorization: Bearer $TOKEN" \
-  https://wifi4heat.azurewebsites.net/api/devices 2>&1
-
-# If the above returns empty, try the -linux host:
-curl -sv -H "Authorization: Bearer $TOKEN" \
-  https://wifi4heat-linux.azurewebsites.net/api/devices 2>&1
+# The module polls the cloud every ~60s with id=<DEVICE_ID> in the URL
+tcpdump -i any -c 1 -A "src host MODULE_IP and dst port 80" 2>/dev/null | grep -oP 'id=\K[0-9]+'
 ```
-
-Replace `YOUR_EMAIL` and `YOUR_PASSWORD` with the credentials you use in the Lasian/4HEAT mobile app. The Device ID is a numeric string (e.g. `12345678`) in the JSON response.
 
 ### Options
 
@@ -232,7 +228,6 @@ Example — set target temperature to 28.8°C:
 - **ON/OFF and power commands not yet captured**: The ON/OFF and power level write registers have not been captured from cloud traffic yet. Temperature changes work via the proxy.
 - **Write latency ~60s**: Commands are delivered when the module polls (every ~60 seconds). Not suitable for safety-critical controls.
 - **Air stoves only** (for now): tested with an air stove. Hydro (water) stoves may expose additional registers (boiler pressure, water temperature) that are not yet mapped.
-- **Single stove per HA instance**: The proxy endpoints use fixed URL paths. Multiple stoves would require separate HA instances or custom routing.
 
 ## Related projects
 

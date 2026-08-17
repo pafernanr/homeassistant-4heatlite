@@ -8,7 +8,7 @@
           "name": "Stove name",
           "host": "Host (IP address of 4HEAT Lite module)",
           "proxy_enabled": "Enable cloud API proxy (requires DNS redirect)",
-          "device_id": "Device ID (from 4HEAT cloud account)"
+          "device_id": "Device ID (leave empty for auto-detection)"
         }
       }
     },
