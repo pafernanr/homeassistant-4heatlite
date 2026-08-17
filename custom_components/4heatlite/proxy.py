@@ -6,13 +6,14 @@ in the commands poll, and by source IP for store/cron requests.
 
 import asyncio
 import logging
+import uuid
 
 import aiohttp
 
 from homeassistant.components.http import HomeAssistantView
 
 from .api import FourHeatLiteApi
-from .const import CLOUD_API_HOST, CLOUD_API_PORT, PROXY_MODE_CLOUD
+from .const import CLOUD_API_HOST, CLOUD_API_IP, CLOUD_API_PORT, PROXY_MODE_CLOUD
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,6 +68,66 @@ def _promote_pending(state, device_id, remote_ip):
     return None
 
 
+class StoveRegisterView(HomeAssistantView):
+    """POST /api/devices/register — module registers on boot before polling."""
+
+    url = "/api/devices/register"
+    name = "api:devices:register"
+    requires_auth = False
+
+    def __init__(self, state):
+        self._state = state
+
+    async def post(self, request):
+        remote_ip = request.remote
+        try:
+            body = await request.json()
+        except Exception:
+            return self.json({"Key": str(uuid.uuid4())})
+
+        device_id = body.get("Id", "")
+        _LOGGER.info(
+            "Module registered: id=%s ip=%s fw=%s.%s product=%s",
+            device_id,
+            body.get("IpAddress", remote_ip),
+            body.get("FirmwareVersion", "?"),
+            body.get("FirmwareRevision", "?"),
+            body.get("ProductCode", "?"),
+        )
+
+        if device_id and remote_ip:
+            entry, _ = _lookup_device(self._state, device_id=device_id)
+            if not entry:
+                _promote_pending(self._state, device_id, remote_ip)
+            self._state.setdefault("hosts", {})[remote_ip] = device_id
+
+        cloud_key = None
+        entry, _ = _lookup_device(self._state, device_id=device_id)
+        if entry:
+            cloud_session = entry.get("cloud_session")
+            proxy_mode = entry.get("proxy_mode")
+            if proxy_mode == PROXY_MODE_CLOUD and cloud_session:
+                cloud_key = await self._forward_cloud(cloud_session, body)
+
+        key = cloud_key or str(uuid.uuid5(uuid.NAMESPACE_DNS, device_id or "4heat"))
+        return self.json({"Key": key})
+
+    @staticmethod
+    async def _forward_cloud(session, body):
+        url = f"http://{CLOUD_API_IP}:{CLOUD_API_PORT}/api/devices/register"
+        headers = {"Host": CLOUD_API_HOST}
+        try:
+            async with session.post(
+                url, json=body, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data.get("Key")
+        except Exception:
+            _LOGGER.debug("Cloud register forward failed", exc_info=True)
+        return None
+
+
 class StoveCommandsView(HomeAssistantView):
     """GET /api/devices/commands — module polls for pending write commands."""
 
@@ -116,18 +177,23 @@ class StoveCommandsView(HomeAssistantView):
             commands.extend(cloud)
 
         if commands:
-            _LOGGER.debug(
-                "Returning %d commands to device %s", len(commands), device_id
+            _LOGGER.info(
+                "Delivering %d command(s) to device %s from %s: %s",
+                len(commands),
+                device_id,
+                remote_ip,
+                commands,
             )
 
         return self.json(commands)
 
     @staticmethod
     async def _forward_cloud(session, query_string):
-        url = f"http://{CLOUD_API_HOST}:{CLOUD_API_PORT}/api/devices/commands?{query_string}"
+        url = f"http://{CLOUD_API_IP}:{CLOUD_API_PORT}/api/devices/commands?{query_string}"
+        headers = {"Host": CLOUD_API_HOST}
         try:
             async with session.get(
-                url, timeout=aiohttp.ClientTimeout(total=10)
+                url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
@@ -168,6 +234,12 @@ class StoveStoreView(HomeAssistantView):
             if coordinator:
                 data = self._parse_values(values)
                 if data:
+                    _LOGGER.info(
+                        "Store data from %s (device %s): %s",
+                        remote_ip,
+                        device_id,
+                        {k: v for k, v in data.items() if k != "raw"},
+                    )
                     coordinator.push_data(data)
 
         if entry:
@@ -208,10 +280,11 @@ class StoveStoreView(HomeAssistantView):
 
     @staticmethod
     async def _forward_cloud(session, body):
-        url = f"http://{CLOUD_API_HOST}:{CLOUD_API_PORT}/api/devices/store"
+        url = f"http://{CLOUD_API_IP}:{CLOUD_API_PORT}/api/devices/store"
+        headers = {"Host": CLOUD_API_HOST}
         try:
             async with session.post(
-                url, json=body, timeout=aiohttp.ClientTimeout(total=10)
+                url, json=body, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
             ) as resp:
                 _LOGGER.debug("Cloud store forward: %d", resp.status)
         except Exception:
@@ -253,10 +326,11 @@ class StoveCronView(HomeAssistantView):
 
     @staticmethod
     async def _forward_cloud(session, body):
-        url = f"http://{CLOUD_API_HOST}:{CLOUD_API_PORT}/api/devices/cron"
+        url = f"http://{CLOUD_API_IP}:{CLOUD_API_PORT}/api/devices/cron"
+        headers = {"Host": CLOUD_API_HOST}
         try:
             async with session.post(
-                url, json=body, timeout=aiohttp.ClientTimeout(total=10)
+                url, json=body, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
             ) as resp:
                 _LOGGER.debug("Cloud cron forward: %d", resp.status)
         except Exception:

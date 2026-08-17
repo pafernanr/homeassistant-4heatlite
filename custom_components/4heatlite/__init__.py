@@ -20,7 +20,7 @@ from .const import (
     PROXY_SESSION,
 )
 from .coordinator import FourHeatLiteCoordinator
-from .proxy import StoveCommandsView, StoveCronView, StoveStoreView
+from .proxy import StoveCommandsView, StoveCronView, StoveRegisterView, StoveStoreView
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if proxy_state is None:
             proxy_state = {"devices": {}, "hosts": {}, "pending": {}}
             hass.data[DOMAIN][PROXY_STATE] = proxy_state
+            hass.http.register_view(StoveRegisterView(proxy_state))
             hass.http.register_view(StoveCommandsView(proxy_state))
             hass.http.register_view(StoveStoreView(proxy_state))
             hass.http.register_view(StoveCronView(proxy_state))

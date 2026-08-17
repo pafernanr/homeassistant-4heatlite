@@ -66,6 +66,9 @@ PROXY_MODE_LOCAL = "local_only"
 PROXY_MODE_CLOUD = "cloud_sync"
 CLOUD_API_HOST = "wifi4heat-linux.azurewebsites.net"
 CLOUD_API_PORT = 80
+# DNS hijack redirects the hostname to the local router, so cloud
+# forwarding must use the real Azure IP with a Host header override.
+CLOUD_API_IP = "20.105.232.8"
 COMMAND_QUEUE = "command_queue"
 PROXY_SESSION = "proxy_session"
 PROXY_POLL_INTERVAL = 120
