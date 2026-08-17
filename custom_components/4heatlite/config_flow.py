@@ -13,6 +13,7 @@ from .const import (
     CONF_PROXY_ENABLED,
     CONF_PROXY_MODE,
     DOMAIN,
+    PROXY_MODE_CLOUD,
     PROXY_MODE_LOCAL,
 )
 
