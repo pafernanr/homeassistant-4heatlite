@@ -33,7 +33,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up 4HEAT Lite from a config entry."""
     coordinator = FourHeatLiteCoordinator(hass, entry.data[CONF_HOST])
 
-    proxy_enabled = entry.data.get(CONF_PROXY_ENABLED, False)
+    proxy_enabled = entry.options.get(
+        CONF_PROXY_ENABLED, entry.data.get(CONF_PROXY_ENABLED, False)
+    )
 
     hass.data.setdefault(DOMAIN, {})
     entry_data = {DATA_COORDINATOR: coordinator}
@@ -97,7 +99,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
 
-    proxy_enabled = entry.data.get(CONF_PROXY_ENABLED, False)
+    proxy_enabled = entry.options.get(
+        CONF_PROXY_ENABLED, entry.data.get(CONF_PROXY_ENABLED, False)
+    )
     platforms = [*PLATFORMS_BASE, Platform.CLIMATE] if proxy_enabled else PLATFORMS_BASE
     unload_ok = await hass.config_entries.async_unload_platforms(entry, platforms)
 

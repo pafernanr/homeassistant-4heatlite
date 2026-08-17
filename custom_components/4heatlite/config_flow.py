@@ -13,7 +13,6 @@ from .const import (
     CONF_PROXY_ENABLED,
     CONF_PROXY_MODE,
     DOMAIN,
-    PROXY_MODE_CLOUD,
     PROXY_MODE_LOCAL,
 )
 
@@ -52,7 +51,6 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_DEVICE_ID: device_id,
                             CONF_NAME: user_input[CONF_NAME],
                             CONF_HOST: host,
-                            CONF_PROXY_ENABLED: user_input.get(CONF_PROXY_ENABLED, False),
                         },
                     )
                 errors[CONF_HOST] = "cannot_connect"
@@ -64,7 +62,6 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_DEVICE_ID): str,
                     vol.Required(CONF_NAME, default="Pellet Stove"): str,
                     vol.Required(CONF_HOST): str,
-                    vol.Optional(CONF_PROXY_ENABLED, default=False): bool,
                 }
             ),
             errors=errors,
@@ -82,15 +79,25 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(data=user_input)
 
+        proxy_enabled = self.config_entry.options.get(
+            CONF_PROXY_ENABLED,
+            self.config_entry.data.get(CONF_PROXY_ENABLED, False),
+        )
+        proxy_mode = self.config_entry.options.get(
+            CONF_PROXY_MODE, PROXY_MODE_LOCAL
+        )
+
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
                     vol.Optional(
+                        CONF_PROXY_ENABLED,
+                        default=proxy_enabled,
+                    ): bool,
+                    vol.Optional(
                         CONF_PROXY_MODE,
-                        default=self.config_entry.options.get(
-                            CONF_PROXY_MODE, PROXY_MODE_LOCAL
-                        ),
+                        default=proxy_mode,
                     ): vol.In(
                         {
                             PROXY_MODE_LOCAL: "Local only",
