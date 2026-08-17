@@ -2,7 +2,6 @@
 
 import logging
 
-import aiohttp
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -20,74 +19,23 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-DETAILS_URL = "http://wifi4heat-linux.azurewebsites.net/api/Devices/Details"
-
 
 class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for 4HEAT Lite."""
 
     VERSION = 1
 
-    def __init__(self):
-        self._device_id = None
-        self._device_name = None
-        self._device_host = None
-
-    async def _fetch_device_details(self, device_id: str) -> dict | None:
-        """Fetch device details from cloud API (unauthenticated)."""
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    DETAILS_URL, params={"id": device_id}, timeout=aiohttp.ClientTimeout(total=10)
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        if "Id" in data:
-                            return data
-        except (aiohttp.ClientError, TimeoutError):
-            pass
-        return None
-
     async def async_step_user(self, user_input=None):
-        """Step 1: Ask for device ID, validate via cloud API."""
         errors = {}
 
         if user_input is not None:
             device_id = user_input[CONF_DEVICE_ID].strip()
+            host = user_input[CONF_HOST].strip()
 
             for entry in self._async_current_entries():
                 if entry.data.get(CONF_DEVICE_ID) == device_id:
                     errors[CONF_DEVICE_ID] = "already_configured"
                     break
-
-            if not errors:
-                details = await self._fetch_device_details(device_id)
-                if details is None:
-                    errors[CONF_DEVICE_ID] = "invalid_device_id"
-                else:
-                    self._device_id = device_id
-                    self._device_name = details.get("Name") or "Pellet Stove"
-                    self._device_host = details.get("IpAddress") or ""
-                    return await self.async_step_configure()
-
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_DEVICE_ID): str,
-                }
-            ),
-            errors=errors,
-        )
-
-    async def async_step_configure(self, user_input=None):
-        """Step 2: Confirm name, host, and proxy settings."""
-        errors = {}
-
-        if user_input is not None:
-            host = user_input[CONF_HOST]
-
-            for entry in self._async_current_entries():
                 if entry.data.get(CONF_HOST) == host:
                     errors[CONF_HOST] = "already_configured"
                     break
@@ -101,7 +49,7 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     return self.async_create_entry(
                         title=user_input[CONF_NAME],
                         data={
-                            CONF_DEVICE_ID: self._device_id,
+                            CONF_DEVICE_ID: device_id,
                             CONF_NAME: user_input[CONF_NAME],
                             CONF_HOST: host,
                             CONF_PROXY_ENABLED: user_input.get(CONF_PROXY_ENABLED, False),
@@ -110,11 +58,12 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_HOST] = "cannot_connect"
 
         return self.async_show_form(
-            step_id="configure",
+            step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_NAME, default=self._device_name): str,
-                    vol.Required(CONF_HOST, default=self._device_host): str,
+                    vol.Required(CONF_DEVICE_ID): str,
+                    vol.Required(CONF_NAME, default="Pellet Stove"): str,
+                    vol.Required(CONF_HOST): str,
                     vol.Optional(CONF_PROXY_ENABLED, default=False): bool,
                 }
             ),

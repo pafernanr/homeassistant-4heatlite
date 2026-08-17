@@ -3,25 +3,18 @@
     "step": {
       "user": {
         "title": "4HEAT Lite Stove",
-        "description": "Enter the Device ID printed on your 4HEAT WiFi module label.",
+        "description": "Enter the details from your 4HEAT WiFi module label.",
         "data": {
-          "device_id": "Device ID"
-        }
-      },
-      "configure": {
-        "title": "Configure stove",
-        "description": "Verify the stove details and configure the connection.",
-        "data": {
+          "device_id": "Device ID (printed on module label)",
           "name": "Stove name",
-          "host": "Host (IP address of 4HEAT Lite module)",
+          "host": "Host (IP address of 4HEAT module)",
           "proxy_enabled": "Enable cloud API proxy (requires DNS redirect)"
         }
       }
     },
     "error": {
       "cannot_connect": "Cannot connect to module. Verify IP and that stove is powered on.",
-      "already_configured": "This device is already configured.",
-      "invalid_device_id": "Device ID not found. Check the label on your WiFi module."
+      "already_configured": "This device is already configured."
     }
   },
   "options": {
