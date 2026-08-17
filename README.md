@@ -78,20 +78,24 @@ No authentication is needed — the module's local TCP API has no auth.
 
 ### Finding your Device ID
 
-If you enable the cloud API proxy, you need your module's Device ID. Query the 4HEAT cloud API with your Lasian app credentials:
+If you enable the cloud API proxy, you need your module's Device ID. Query the 4HEAT cloud API with your Lasian/4HEAT mobile app credentials:
 
 ```bash
 # Get OAuth token
 TOKEN=$(curl -s -X POST https://wifi4heat.azurewebsites.net/Token \
   -d "grant_type=password&username=YOUR_EMAIL&password=YOUR_PASSWORD" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+  | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token','').strip())")
 
-# List your devices (Device ID is in the response)
-curl -s -H "Authorization: Bearer $TOKEN" \
-  https://wifi4heat-linux.azurewebsites.net/api/devices | python3 -m json.tool
+# List your devices — try both API hosts
+curl -sv -H "Authorization: Bearer $TOKEN" \
+  https://wifi4heat.azurewebsites.net/api/devices 2>&1
+
+# If the above returns empty, try the -linux host:
+curl -sv -H "Authorization: Bearer $TOKEN" \
+  https://wifi4heat-linux.azurewebsites.net/api/devices 2>&1
 ```
 
-Replace `YOUR_EMAIL` and `YOUR_PASSWORD` with the credentials you use in the Lasian/4HEAT mobile app.
+Replace `YOUR_EMAIL` and `YOUR_PASSWORD` with the credentials you use in the Lasian/4HEAT mobile app. The Device ID is a numeric string (e.g. `12345678`) in the JSON response.
 
 ### Options
 
