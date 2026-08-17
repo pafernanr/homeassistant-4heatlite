@@ -1,7 +1,7 @@
 {
   "domain": "4heatlite",
   "name": "4HEAT Lite Stove",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "documentation": "https://github.com/pafernanr/homeassistant-4heatlite",
   "config_flow": true,
   "dependencies": ["http"],

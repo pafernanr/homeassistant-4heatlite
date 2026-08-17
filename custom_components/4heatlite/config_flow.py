@@ -57,6 +57,9 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_PROXY_ENABLED: user_input.get(
                                 CONF_PROXY_ENABLED, False
                             ),
+                            CONF_PROXY_MODE: user_input.get(
+                                CONF_PROXY_MODE, PROXY_MODE_LOCAL
+                            ),
                         },
                     )
                 errors[CONF_HOST] = "cannot_connect"
@@ -69,6 +72,14 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_NAME, default="Pellet Stove"): str,
                     vol.Required(CONF_HOST): str,
                     vol.Optional(CONF_PROXY_ENABLED, default=False): bool,
+                    vol.Optional(
+                        CONF_PROXY_MODE, default=PROXY_MODE_LOCAL
+                    ): vol.In(
+                        {
+                            PROXY_MODE_LOCAL: "Local only",
+                            PROXY_MODE_CLOUD: "Cloud sync",
+                        }
+                    ),
                 }
             ),
             errors=errors,
