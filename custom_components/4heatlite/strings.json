@@ -3,11 +3,12 @@
     "step": {
       "user": {
         "title": "4HEAT Lite Stove",
-        "description": "Enter the details from your 4HEAT WiFi module label.",
+        "description": "Enter the details from your 4HEAT WiFi module label. Enabling the cloud API proxy requires a DNS override and firewall DNAT on your router. See the [setup guide](https://github.com/pafernanr/homeassistant-4heatlite#proxy-setup) for instructions.",
         "data": {
           "device_id": "Device ID (printed on module label)",
           "name": "Stove name",
-          "host": "Host (IP address of 4HEAT module)"
+          "host": "Host (IP address of 4HEAT module)",
+          "proxy_enabled": "Enable cloud API proxy"
         }
       }
     },
