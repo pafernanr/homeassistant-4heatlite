@@ -71,8 +71,8 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_PROXY_MODE, default=PROXY_MODE_LOCAL
                     ): vol.In(
                         {
-                            PROXY_MODE_LOCAL: "Local only",
-                            PROXY_MODE_CLOUD: "Cloud sync",
+                            PROXY_MODE_LOCAL: "Local only (Sensors only, Controls unavailable)",
+                            PROXY_MODE_CLOUD: "Cloud sync (Sync Controls from/to the Cloud)",
                         }
                     ),
                 }
@@ -105,8 +105,8 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                         default=proxy_mode,
                     ): vol.In(
                         {
-                            PROXY_MODE_LOCAL: "Local only",
-                            PROXY_MODE_CLOUD: "Cloud sync",
+                            PROXY_MODE_LOCAL: "Local only (Sensors only, Controls unavailable)",
+                            PROXY_MODE_CLOUD: "Cloud sync (Sync Controls from/to the Cloud)",
                         }
                     ),
                 }

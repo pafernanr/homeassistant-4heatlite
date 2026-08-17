@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "4HEAT Lite Stove",
-        "description": "Enter the details from your 4HEAT WiFi module label. Cloud sync requires a DNS override and firewall DNAT on your router. See the [setup guide](https://github.com/pafernanr/homeassistant-4heatlite#proxy-setup) for instructions.",
+        "description": "Enter the details from your 4HEAT WiFi module label.\n\nCloud sync requires a DNS override and firewall DNAT rule on your router. See [Cloud API Proxy](https://github.com/pafernanr/homeassistant-4heatlite#cloud-api-proxy) for setup instructions.",
         "data": {
           "device_id": "Device ID (printed on module label)",
           "name": "Stove name",
@@ -20,7 +20,7 @@
   "options": {
     "step": {
       "init": {
-        "description": "Cloud sync requires a DNS override and firewall DNAT on your router to redirect the 4HEAT module traffic to Home Assistant. See the [setup guide](https://github.com/pafernanr/homeassistant-4heatlite#proxy-setup) for instructions.",
+        "description": "Cloud sync requires a DNS override and firewall DNAT rule on your router. See [Cloud API Proxy](https://github.com/pafernanr/homeassistant-4heatlite#cloud-api-proxy) for setup instructions.",
         "data": {
           "proxy_mode": "Proxy mode"
         }
