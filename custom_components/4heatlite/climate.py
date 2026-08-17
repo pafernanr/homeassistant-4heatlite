@@ -42,12 +42,6 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
     _attr_max_temp = 40.0
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
     _attr_preset_modes = [f"Power {i}" for i in range(1, 8)]
-    _attr_supported_features = (
-        ClimateEntityFeature.TARGET_TEMPERATURE
-        | ClimateEntityFeature.PRESET_MODE
-        | ClimateEntityFeature.TURN_ON
-        | ClimateEntityFeature.TURN_OFF
-    )
 
     def __init__(self, coordinator: FourHeatLiteCoordinator, stove_name: str, queue):
         super().__init__(coordinator)
@@ -55,6 +49,15 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
         self._queue = queue
         self._attr_name = f"{stove_name} Climate"
         self._attr_unique_id = f"{stove_name}_climate"
+        if queue:
+            self._attr_supported_features = (
+                ClimateEntityFeature.TARGET_TEMPERATURE
+                | ClimateEntityFeature.PRESET_MODE
+                | ClimateEntityFeature.TURN_ON
+                | ClimateEntityFeature.TURN_OFF
+            )
+        else:
+            self._attr_supported_features = ClimateEntityFeature(0)
 
     @property
     def device_info(self):

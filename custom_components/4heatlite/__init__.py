@@ -25,8 +25,7 @@ from .proxy import StoveCommandsView, StoveCronView, StoveStoreView
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS_BASE = [Platform.SENSOR, Platform.BINARY_SENSOR]
-PLATFORMS_PROXY = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.CLIMATE]
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.CLIMATE]
 PROXY_STATE = "proxy_state"
 
 
@@ -79,10 +78,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data[DOMAIN][entry.entry_id] = entry_data
 
-    platforms = PLATFORMS_PROXY if proxy_enabled else PLATFORMS_BASE
-
     await coordinator.async_config_entry_first_refresh()
-    await hass.config_entries.async_forward_entry_setups(entry, platforms)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
@@ -98,9 +95,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
 
-    proxy_enabled = entry.data.get(CONF_PROXY_ENABLED, False)
-    platforms = PLATFORMS_PROXY if proxy_enabled else PLATFORMS_BASE
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, platforms)
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
         session = entry_data.get(PROXY_SESSION)
