@@ -60,7 +60,6 @@ ERROR_NAMES = {
 }
 
 # Proxy configuration
-CONF_PROXY_ENABLED = "proxy_enabled"
 CONF_DEVICE_ID = "device_id"
 CONF_PROXY_MODE = "proxy_mode"
 PROXY_MODE_LOCAL = "local_only"

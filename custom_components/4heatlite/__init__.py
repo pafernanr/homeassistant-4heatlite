@@ -12,7 +12,6 @@ from homeassistant.core import HomeAssistant
 from .const import (
     COMMAND_QUEUE,
     CONF_DEVICE_ID,
-    CONF_PROXY_ENABLED,
     CONF_PROXY_MODE,
     DATA_COORDINATOR,
     DOMAIN,
@@ -33,16 +32,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up 4HEAT Lite from a config entry."""
     coordinator = FourHeatLiteCoordinator(hass, entry.data[CONF_HOST])
 
-    proxy_enabled = entry.options.get(
-        CONF_PROXY_ENABLED, entry.data.get(CONF_PROXY_ENABLED, False)
-    )
+    proxy_mode = entry.options.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
+    proxy_enabled = proxy_mode != PROXY_MODE_LOCAL
 
     hass.data.setdefault(DOMAIN, {})
     entry_data = {DATA_COORDINATOR: coordinator}
 
     if proxy_enabled:
         device_id = entry.data.get(CONF_DEVICE_ID, "")
-        proxy_mode = entry.options.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
         host = entry.data[CONF_HOST]
 
         command_queue = asyncio.Queue()
@@ -99,9 +96,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
 
-    proxy_enabled = entry.options.get(
-        CONF_PROXY_ENABLED, entry.data.get(CONF_PROXY_ENABLED, False)
-    )
+    proxy_mode = entry.options.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
+    proxy_enabled = proxy_mode != PROXY_MODE_LOCAL
     platforms = [*PLATFORMS_BASE, Platform.CLIMATE] if proxy_enabled else PLATFORMS_BASE
     unload_ok = await hass.config_entries.async_unload_platforms(entry, platforms)
 
