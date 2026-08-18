@@ -1,14 +1,25 @@
 # Proxy Endpoints
 
-The proxy registers HTTP endpoints on HA's existing web server (port 8123) using the `HomeAssistantView` pattern. All endpoints use `requires_auth = False` because the module has no authentication capabilities.
+The proxy registers HTTP endpoints on HA's web server (port 8123) using the `HomeAssistantView` pattern. All endpoints use `requires_auth = False` because the module has no authentication capabilities.
 
 ## Endpoint Reference
 
+| Endpoint | Method | When | Proxy Mode |
+|----------|--------|------|------------|
+| [`/api/devices/register`](#post-apidevicesregister) | POST | Module boot | Both |
+| [`/api/devices/commands`](#get-apidevicescommands) | GET | Every ~60s | Both |
+| [`/api/Devices/timeAlign`](#get-apidevicestimealign) | GET | After each commands poll | Both |
+| [`/api/devices/store`](#post-apidevicesstore) | POST | On value change + ~15min keepalive | Both |
+| [`/api/devices/cron`](#post-apidevicescron) | POST | Periodically | Both |
+
+---
+
 ### POST `/api/devices/register`
 
-**When**: Module sends this once on boot before starting the polling cycle.
+Module sends this once on boot before starting the polling cycle.
 
-**Request body** (JSON):
+**Request:**
+
 ```json
 {
   "Id": "<DEVICE_ID>",
@@ -34,65 +45,67 @@ The proxy registers HTTP endpoints on HA's existing web server (port 8123) using
 }
 ```
 
-**Response** (JSON):
+**Response:**
+
 ```json
 {"Key": "<DEVICE_KEY>"}
 ```
 
-**Proxy behavior**:
-1. Auto-detects device ID and maps it to the config entry.
-2. In `cloud_sync` mode: forwards the full payload to Azure and receives the real DeviceKey.
-3. Returns the stored DeviceKey (from config entry) or the cloud-retrieved key.
-4. If a new key is received from the cloud, persists it in the config entry.
+`cloud_sync`: forwards to Azure, receives and persists DeviceKey. `local_only`: returns stored DeviceKey from config entry.
 
 ---
 
 ### GET `/api/devices/commands`
 
-**When**: Module polls every ~60 seconds.
+Module polls every ~60s for pending commands.
 
-**Query parameters**:
-- `id` — Device ID
-- `removefromserver` — `true` (module wants commands removed after delivery)
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | query | Device ID |
+| `removefromserver` | query | `true` — dequeue after delivery |
 
-**Response** (JSON array):
+**Response** (with pending command):
+
 ```json
 [{"id": "<DEVICE_ID>", "comando": ["2WC", "1", "0512005a00b4006401900001000100"]}]
 ```
-Or empty: `[]`
 
-**Proxy behavior**:
-1. Drains the local command queue (commands from HA climate entity).
-2. In `cloud_sync` mode: also fetches commands from Azure and merges them.
-3. Returns the combined list.
+**Response** (no pending commands):
+
+```json
+[]
+```
+
+`cloud_sync`: drains local queue + fetches and merges Azure commands. `local_only`: drains local queue only.
 
 ---
 
 ### GET `/api/Devices/timeAlign`
 
-**When**: Module calls this after every commands poll to sync its internal clock.
+Module calls this after every commands poll to sync its internal clock.
 
-**Query parameters**:
-- `deviceKey` — The module's DeviceKey UUID
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `deviceKey` | query | DeviceKey UUID |
 
-**Response** (JSON):
+**Response:**
+
 ```json
 {"gmtOffset": 7200, "timestamp": 1787022616}
 ```
 
-**Proxy behavior**:
-1. In `cloud_sync` mode: forwards to Azure and returns the response.
-2. Fallback: returns local system time with configured GMT offset.
+`cloud_sync`: forwards to Azure. `local_only`: returns local system time with configured GMT offset.
 
-> **Critical**: If this endpoint returns 404, the module stops its polling cycle and never sends `/store`. This was discovered empirically — it is not documented in any API reference.
+> **Critical**: If this endpoint returns 404, the module stops its polling cycle and never sends `/store`.
 
 ---
 
 ### POST `/api/devices/store`
 
-**When**: Module sends sensor data on value changes (within seconds) and periodically as a keepalive (~15 minutes).
+Module sends sensor data on value changes (within seconds) and periodically as a keepalive (~15 minutes).
 
-**Request body** (JSON):
+**Request:**
+
 ```json
 {
   "DeviceKey": "<DEVICE_KEY>",
@@ -101,53 +114,44 @@ Or empty: `[]`
   "Values": [
     "1000010017000002021600f322000000010801",
     "12005a00b4006401900001000100000000",
-    "0e016c00070001000700000001016c0007",
-    ...
+    "0e016c00070001000700000001016c0007"
   ]
 }
 ```
 
-**Response** (JSON):
+**Response:**
+
 ```json
 {"DeviceId": "<DEVICE_ID>", "Assistant": ""}
 ```
 
-**Proxy behavior**:
-1. Parses the `Values` array to extract sensor data:
-   - `10...` (38 chars) — main sensor block (0310): state, error, exhaust temp, room temp
-   - `12005a...` — target temperature register
-   - `0e016c...` — power level register
-2. Pushes parsed data to the coordinator for immediate entity updates.
-3. In `cloud_sync` mode: forwards the full body to Azure.
-
-### Values Decoding
-
-| Prefix | Register | Parsed Field | Decoding |
-|--------|----------|-------------|----------|
-| `10` | 0310 (sensors) | state, error, exhaust_temp, room_temp, on_off | See [register map](SENSORS.md#register-map-0310-response) |
-| `12005a` | Target temp | `target_temp` | bytes 3-4, big-endian, ÷10 → °C |
-| `0e016c` | Power | `power` | bytes 5-6, big-endian |
+Proxy parses `Values` to extract sensor data (see [Values Decoding](#values-decoding) below), pushes to coordinator for immediate entity updates. `cloud_sync`: also forwards full body to Azure.
 
 ---
 
 ### POST `/api/devices/cron`
 
-**When**: Module sends schedule/timer data periodically.
+Module sends schedule/timer data periodically.
 
-**Response** (JSON):
+**Response:**
+
 ```json
 {"DeviceId": "<DEVICE_ID>", "Assistant": ""}
 ```
 
-**Proxy behavior**:
-1. Acknowledges with the standard response.
-2. In `cloud_sync` mode: forwards to Azure.
+`cloud_sync`: forwards to Azure. `local_only`: acknowledges only.
 
 ---
 
-### GET `/api/devices/diag` (temporary)
+## Values Decoding
 
-Diagnostic endpoint for debugging proxy state. Returns device count, host mapping, cloud session status, and forward tracking. Will be removed in a future release.
+The `Values` array in `/store` contains hex-encoded register data. Each string is identified by its prefix:
+
+| Prefix | Register | Parsed Fields | Decoding |
+|--------|----------|---------------|----------|
+| `10` (38 chars) | 0310 — main sensors | state, error, exhaust_temp, room_temp, on_off | See [register map](SENSORS.md#register-map-0310-response) |
+| `12005a` | Target temp | target_temp | bytes 3-4, big-endian, /10 = °C |
+| `0e016c` | Power level | power | bytes 5-6, big-endian |
 
 ## Device Lookup
 
