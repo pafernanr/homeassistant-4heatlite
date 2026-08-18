@@ -64,11 +64,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if proxy_state is None:
             proxy_state = {"devices": {}, "hosts": {}, "pending": {}, "hass": hass}
             hass.data[DOMAIN][PROXY_STATE] = proxy_state
-            hass.http.register_view(StoveRegisterView(proxy_state))
-            hass.http.register_view(StoveCommandsView(proxy_state))
-            hass.http.register_view(StoveStoreView(proxy_state))
-            hass.http.register_view(StoveCronView(proxy_state))
-            hass.http.register_view(ProxyDiagView(proxy_state))
 
         device_entry = {
             "queue": command_queue,
@@ -85,6 +80,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             proxy_state["hosts"][host] = device_id
         else:
             proxy_state["pending"][entry.entry_id] = device_entry
+
+        if not proxy_state.get("_views_registered"):
+            hass.http.register_view(StoveRegisterView(proxy_state))
+            hass.http.register_view(StoveCommandsView(proxy_state))
+            hass.http.register_view(StoveStoreView(proxy_state))
+            hass.http.register_view(StoveCronView(proxy_state))
+            hass.http.register_view(ProxyDiagView(proxy_state))
+            proxy_state["_views_registered"] = True
 
     platforms = [*PLATFORMS_BASE, Platform.CLIMATE] if proxy_enabled else PLATFORMS_BASE
     entry_data[DATA_PLATFORMS] = list(platforms)

@@ -10,11 +10,23 @@
           "host": "Host (IP address of 4HEAT module)",
           "proxy_mode": "Proxy mode"
         }
+      },
+      "cloud": {
+        "title": "4HEAT Cloud Credentials",
+        "description": "Enter your 4HEAT account credentials (same as the mobile app). Used once to retrieve the DeviceKey from the cloud — credentials are not stored.",
+        "data": {
+          "cloud_email": "Email",
+          "cloud_password": "Password"
+        }
       }
     },
     "error": {
       "cannot_connect": "Cannot connect to module. Verify IP and that stove is powered on.",
-      "already_configured": "This device is already configured."
+      "already_configured": "This device is already configured.",
+      "invalid_credentials": "Invalid 4HEAT cloud credentials.",
+      "device_not_found": "Device not found in your 4HEAT account.",
+      "cloud_error": "Could not connect to 4HEAT cloud.",
+      "no_device_key": "Could not retrieve DeviceKey. Ensure the stove has connected to the cloud at least once."
     }
   },
   "options": {

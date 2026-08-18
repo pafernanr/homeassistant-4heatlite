@@ -6,7 +6,6 @@ in the commands poll, and by source IP for store/cron requests.
 
 import asyncio
 import logging
-import uuid
 
 import aiohttp
 
@@ -90,7 +89,7 @@ class StoveRegisterView(HomeAssistantView):
         try:
             body = await request.json()
         except Exception:
-            return self.json({"Key": str(uuid.uuid4())})
+            return self.json({"Key": ""})
 
         device_id = body.get("Id", "")
         _LOGGER.info(
@@ -110,6 +109,8 @@ class StoveRegisterView(HomeAssistantView):
 
         entry, _ = _lookup_device(self._state, device_id=device_id)
 
+        stored_key = entry.get("device_key") if entry else None
+
         cloud_key = None
         if entry:
             cloud_session = entry.get("cloud_session")
@@ -119,17 +120,16 @@ class StoveRegisterView(HomeAssistantView):
                 self._state["_last_register_forward"] = (
                     f"cloud_key={cloud_key}"
                 )
-            else:
-                self._state["_last_register_forward"] = (
-                    f"skipped:mode={proxy_mode},session={cloud_session is not None}"
-                )
 
-        stored_key = entry.get("device_key") if entry else None
-        key = stored_key or cloud_key or str(
-            uuid.uuid5(uuid.NAMESPACE_DNS, device_id or "4heat")
-        )
+        key = stored_key or cloud_key
+        if not key:
+            _LOGGER.error(
+                "No DeviceKey available for %s — configure device_key in integration",
+                device_id,
+            )
+            key = cloud_key or ""
 
-        if entry and not stored_key:
+        if entry and key and not stored_key:
             entry["device_key"] = key
             self._persist_device_key(entry.get("entry_id"), key)
 
