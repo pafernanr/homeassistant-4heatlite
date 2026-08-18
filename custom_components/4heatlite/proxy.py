@@ -381,7 +381,7 @@ class ProxyDiagView(HomeAssistantView):
                 "proxy_mode": entry.get("proxy_mode"),
                 "has_cloud_session": entry.get("cloud_session") is not None,
                 "has_queue": entry.get("queue") is not None,
-                "device_key": entry.get("device_key", "")[:8] + "...",
+                "device_key": (entry.get("device_key") or "")[:8] + "...",
             }
 
         cloud_session = None
