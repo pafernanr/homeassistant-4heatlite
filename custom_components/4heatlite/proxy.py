@@ -110,10 +110,6 @@ class StoveRegisterView(HomeAssistantView):
 
         entry, _ = _lookup_device(self._state, device_id=device_id)
 
-        stored_key = entry.get("device_key") if entry else None
-        if stored_key:
-            return self.json({"Key": stored_key})
-
         cloud_key = None
         if entry:
             cloud_session = entry.get("cloud_session")
@@ -121,9 +117,12 @@ class StoveRegisterView(HomeAssistantView):
             if proxy_mode == PROXY_MODE_CLOUD and cloud_session:
                 cloud_key = await self._forward_cloud(cloud_session, body)
 
-        key = cloud_key or str(uuid.uuid5(uuid.NAMESPACE_DNS, device_id or "4heat"))
+        stored_key = entry.get("device_key") if entry else None
+        key = stored_key or cloud_key or str(
+            uuid.uuid5(uuid.NAMESPACE_DNS, device_id or "4heat")
+        )
 
-        if entry:
+        if entry and not stored_key:
             entry["device_key"] = key
             self._persist_device_key(entry.get("entry_id"), key)
 
@@ -151,7 +150,7 @@ class StoveRegisterView(HomeAssistantView):
                     data = await resp.json()
                     return data.get("Key")
         except Exception:
-            _LOGGER.debug("Cloud register forward failed", exc_info=True)
+            _LOGGER.warning("Cloud register forward failed", exc_info=True)
         return None
 
 
@@ -228,7 +227,7 @@ class StoveCommandsView(HomeAssistantView):
                         _LOGGER.info("Forwarding %d cloud commands", len(data))
                     return data if isinstance(data, list) else []
         except Exception:
-            _LOGGER.debug("Cloud command fetch failed", exc_info=True)
+            _LOGGER.warning("Cloud command fetch failed", exc_info=True)
         return []
 
 
@@ -315,7 +314,7 @@ class StoveStoreView(HomeAssistantView):
             ) as resp:
                 _LOGGER.debug("Cloud store forward: %d", resp.status)
         except Exception:
-            _LOGGER.debug("Cloud store forward failed", exc_info=True)
+            _LOGGER.warning("Cloud store forward failed", exc_info=True)
 
 
 class StoveCronView(HomeAssistantView):
@@ -361,4 +360,4 @@ class StoveCronView(HomeAssistantView):
             ) as resp:
                 _LOGGER.debug("Cloud cron forward: %d", resp.status)
         except Exception:
-            _LOGGER.debug("Cloud cron forward failed", exc_info=True)
+            _LOGGER.warning("Cloud cron forward failed", exc_info=True)
