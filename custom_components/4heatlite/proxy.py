@@ -116,6 +116,13 @@ class StoveRegisterView(HomeAssistantView):
             proxy_mode = entry.get("proxy_mode")
             if proxy_mode == PROXY_MODE_CLOUD and cloud_session:
                 cloud_key = await self._forward_cloud(cloud_session, body)
+                self._state["_last_register_forward"] = (
+                    f"cloud_key={cloud_key}"
+                )
+            else:
+                self._state["_last_register_forward"] = (
+                    f"skipped:mode={proxy_mode},session={cloud_session is not None}"
+                )
 
         stored_key = entry.get("device_key") if entry else None
         key = stored_key or cloud_key or str(
@@ -272,7 +279,11 @@ class StoveStoreView(HomeAssistantView):
             proxy_mode = entry.get("proxy_mode")
             cloud_session = entry.get("cloud_session")
             if proxy_mode == PROXY_MODE_CLOUD and cloud_session:
-                await self._forward_cloud(cloud_session, body)
+                await self._forward_cloud(cloud_session, body, self._state)
+            else:
+                self._state["_last_store_forward"] = (
+                    f"skipped:mode={proxy_mode},session={cloud_session is not None}"
+                )
 
         return self.json(ok_response)
 
@@ -305,16 +316,20 @@ class StoveStoreView(HomeAssistantView):
         return result
 
     @staticmethod
-    async def _forward_cloud(session, body):
+    async def _forward_cloud(session, body, state=None):
         url = f"http://{CLOUD_API_IP}:{CLOUD_API_PORT}/api/devices/store"
         headers = {"Host": CLOUD_API_HOST}
         try:
             async with session.post(
                 url, json=body, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
             ) as resp:
-                _LOGGER.debug("Cloud store forward: %d", resp.status)
-        except Exception:
+                _LOGGER.info("Cloud store forward: %d", resp.status)
+                if state is not None:
+                    state["_last_store_forward"] = f"ok:{resp.status}"
+        except Exception as exc:
             _LOGGER.warning("Cloud store forward failed", exc_info=True)
+            if state is not None:
+                state["_last_store_forward"] = f"error:{type(exc).__name__}:{exc}"
 
 
 class StoveCronView(HomeAssistantView):
@@ -374,41 +389,44 @@ class ProxyDiagView(HomeAssistantView):
         self._state = state
 
     async def get(self, request):
-        result = {"devices": {}, "hosts": dict(self._state.get("hosts", {}))}
+        try:
+            devices = self._state.get("devices", {})
+            hosts = self._state.get("hosts", {})
+            pending = self._state.get("pending", {})
 
-        for did, entry in self._state.get("devices", {}).items():
-            result["devices"][did] = {
-                "proxy_mode": entry.get("proxy_mode"),
-                "has_cloud_session": entry.get("cloud_session") is not None,
-                "has_queue": entry.get("queue") is not None,
-                "device_key": (entry.get("device_key") or "")[:8] + "...",
+            result = {
+                "device_count": len(devices),
+                "host_count": len(hosts),
+                "pending_count": len(pending),
+                "device_ids": list(devices.keys()),
+                "host_map": {k: v for k, v in hosts.items()},
             }
 
-        cloud_session = None
-        for entry in self._state.get("devices", {}).values():
-            cloud_session = entry.get("cloud_session")
-            if cloud_session:
-                break
-
-        if not cloud_session:
-            result["cloud_test"] = "no cloud session"
-            return self.json(result)
-
-        url = f"http://{CLOUD_API_IP}:{CLOUD_API_PORT}/api/devices/summary?ids%5B0%5D=<DEVICE_ID>"
-        headers = {"Host": CLOUD_API_HOST}
-        try:
-            async with cloud_session.get(
-                url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
-            ) as resp:
-                result["cloud_test"] = {
-                    "status": resp.status,
-                    "url": url,
+            for did, entry in devices.items():
+                pm = entry.get("proxy_mode")
+                cs = entry.get("cloud_session")
+                result[f"dev_{did}"] = {
+                    "proxy_mode": str(pm),
+                    "cloud_session_type": type(cs).__name__ if cs else "None",
+                    "has_queue": entry.get("queue") is not None,
+                    "device_key_set": entry.get("device_key") is not None,
                 }
-                if resp.status == 200:
-                    data = await resp.json()
-                    if data:
-                        result["cloud_test"]["is_online"] = data[0].get("IsOnline")
-        except Exception as exc:
-            result["cloud_test"] = {"error": str(exc), "type": type(exc).__name__}
 
-        return self.json(result)
+                if cs:
+                    test_url = f"http://{CLOUD_API_IP}:{CLOUD_API_PORT}/api/devices/summary?ids%5B0%5D={did}"
+                    try:
+                        async with cs.get(
+                            test_url,
+                            headers={"Host": CLOUD_API_HOST},
+                            timeout=aiohttp.ClientTimeout(total=10),
+                        ) as resp:
+                            result["cloud_test"] = f"status={resp.status}"
+                    except Exception as exc:
+                        result["cloud_test"] = f"error: {type(exc).__name__}: {exc}"
+
+            result["last_store_forward"] = self._state.get("_last_store_forward", "none yet")
+            result["last_register_forward"] = self._state.get("_last_register_forward", "none yet")
+
+            return self.json(result)
+        except Exception as exc:
+            return self.json({"error": f"{type(exc).__name__}: {exc}"})
