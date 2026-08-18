@@ -65,7 +65,7 @@ The module connects to `wifi4heat-linux.azurewebsites.net` on port 80 (HTTP). To
 Resolve the cloud hostname to your router's LAN IP:
 
 ```bash
-uci add_list dhcp.@dnsmasq[0].address='/wifi4heat-linux.azurewebsites.net/ROUTER_IP'
+uci add_list dhcp.@dnsmasq[0].address='/wifi4heat-linux.azurewebsites.net/<ROUTER_IP>'
 uci commit dhcp
 /etc/init.d/dnsmasq restart
 ```
@@ -82,9 +82,9 @@ If `http:` in `configuration.yaml` has no `ssl_certificate` configured and no SS
 uci add firewall redirect
 uci set firewall.@redirect[-1].name='4heat-proxy'
 uci set firewall.@redirect[-1].src='lan'
-uci set firewall.@redirect[-1].src_ip='MODULE_IP'
+uci set firewall.@redirect[-1].src_ip='<MODULE_IP>'
 uci set firewall.@redirect[-1].dest='lan'
-uci set firewall.@redirect[-1].dest_ip='HA_IP'
+uci set firewall.@redirect[-1].dest_ip='<HA_IP>'
 uci set firewall.@redirect[-1].dest_port='8123'
 uci set firewall.@redirect[-1].proto='tcp'
 uci set firewall.@redirect[-1].target='DNAT'
@@ -107,7 +107,7 @@ pid = /var/run/stunnel-4heat.pid
 [4heat-proxy]
 client = yes
 accept = 8180
-connect = HA_IP:8123
+connect = <HA_IP>:8123
 verifyChain = no
 EOF
 
@@ -122,9 +122,9 @@ stunnel accepts plain HTTP on port 8180 and wraps it in TLS before forwarding to
 uci add firewall redirect
 uci set firewall.@redirect[-1].name='4heat-proxy'
 uci set firewall.@redirect[-1].src='lan'
-uci set firewall.@redirect[-1].src_ip='MODULE_IP'
+uci set firewall.@redirect[-1].src_ip='<MODULE_IP>'
 uci set firewall.@redirect[-1].dest='lan'
-uci set firewall.@redirect[-1].dest_ip='ROUTER_IP'
+uci set firewall.@redirect[-1].dest_ip='<ROUTER_IP>'
 uci set firewall.@redirect[-1].dest_port='8180'
 uci set firewall.@redirect[-1].proto='tcp'
 uci set firewall.@redirect[-1].target='DNAT'
@@ -132,7 +132,7 @@ uci commit firewall
 /etc/init.d/firewall restart
 ```
 
-Replace `MODULE_IP` with your module's IP, `ROUTER_IP` with your router's LAN IP, and `HA_IP` with your Home Assistant server's IP.
+Replace `<MODULE_IP>` with your module's IP, `<ROUTER_IP>` with your router's LAN IP, and `<HA_IP>` with your Home Assistant server's IP.
 
 > **Note**: LAN-to-LAN DNAT (hairpin NAT) may require an additional masquerade rule on some OpenWrt configurations.
 
@@ -144,7 +144,7 @@ To proxy multiple stoves, add one DNAT rule per module (different `src_ip`, same
 
 ```bash
 # From a machine on the same LAN:
-curl -v http://HA_IP:8123/ 2>&1 | head -15
+curl -v http://<HA_IP>:8123/ 2>&1 | head -15
 ```
 
 - If you get an HTML response: HA uses **HTTP** (Scenario A).
@@ -155,7 +155,7 @@ curl -v http://HA_IP:8123/ 2>&1 | head -15
 To restore full cloud connectivity, remove the DNS override and firewall redirect:
 
 ```bash
-uci del_list dhcp.@dnsmasq[0].address='/wifi4heat-linux.azurewebsites.net/ROUTER_IP'
+uci del_list dhcp.@dnsmasq[0].address='/wifi4heat-linux.azurewebsites.net/<ROUTER_IP>'
 uci commit dhcp
 /etc/init.d/dnsmasq restart
 
