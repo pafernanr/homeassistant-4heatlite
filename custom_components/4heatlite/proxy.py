@@ -378,6 +378,51 @@ class StoveCronView(HomeAssistantView):
             _LOGGER.warning("Cloud cron forward failed", exc_info=True)
 
 
+class StoveTimeAlignView(HomeAssistantView):
+    """GET /api/Devices/timeAlign — module syncs its clock after commands poll."""
+
+    url = "/api/Devices/timeAlign"
+    name = "api:devices:timealign"
+    requires_auth = False
+
+    def __init__(self, state):
+        self._state = state
+
+    async def get(self, request):
+        device_key = request.query.get("deviceKey", "")
+        entry, _ = _lookup_device(self._state)
+
+        if entry:
+            cloud_session = entry.get("cloud_session")
+            proxy_mode = entry.get("proxy_mode")
+            if proxy_mode == PROXY_MODE_CLOUD and cloud_session:
+                result = await self._forward_cloud(
+                    cloud_session, request.query_string
+                )
+                if result is not None:
+                    return self.json(result)
+
+        import time
+        return self.json({
+            "gmtOffset": 7200,
+            "timestamp": int(time.time()),
+        })
+
+    @staticmethod
+    async def _forward_cloud(session, query_string):
+        url = f"http://{CLOUD_API_IP}:{CLOUD_API_PORT}/api/Devices/timeAlign?{query_string}"
+        headers = {"Host": CLOUD_API_HOST}
+        try:
+            async with session.get(
+                url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+        except Exception:
+            _LOGGER.warning("Cloud timeAlign forward failed", exc_info=True)
+        return None
+
+
 class ProxyDiagView(HomeAssistantView):
     """GET /api/devices/diag — test cloud connectivity (remove after debugging)."""
 

@@ -27,6 +27,7 @@ from .proxy import (
     StoveCronView,
     StoveRegisterView,
     StoveStoreView,
+    StoveTimeAlignView,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -86,6 +87,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.http.register_view(StoveCommandsView(proxy_state))
             hass.http.register_view(StoveStoreView(proxy_state))
             hass.http.register_view(StoveCronView(proxy_state))
+            hass.http.register_view(StoveTimeAlignView(proxy_state))
             hass.http.register_view(ProxyDiagView(proxy_state))
             proxy_state["_views_registered"] = True
 
