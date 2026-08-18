@@ -70,11 +70,10 @@ With manual installation you will not receive update notifications.
 
 1. Go to Settings > Devices & Services > Add Integration
 2. Search for "4HEAT Lite Stove"
-3. Enter a name for your stove and the IP address of the 4HEAT Lite module
-4. Optionally enable the cloud API proxy and enter your Device ID
-5. The integration will verify connectivity before completing setup
-
-No authentication is needed — the module's local TCP API has no auth.
+3. Enter the Device ID (printed on the module label), a name for your stove, and the module's IP address
+4. Select the proxy mode: **Local only** (sensors only) or **Cloud sync** (full control + mobile app sync)
+5. If you selected Cloud sync, enter your 4HEAT account credentials (same email/password as the Lasian/4HEAT mobile app). These are used once to retrieve the DeviceKey from the cloud and are **not stored**.
+6. The integration will verify connectivity before completing setup
 
 ### Multiple Stoves
 
@@ -84,14 +83,7 @@ Each module needs its own firewall DNAT rule (`src_ip` = that module's IP).
 
 ### Device ID
 
-The Device ID is **auto-detected** from the first module request when the proxy is active. Leave the field empty during setup — the integration will capture it automatically once DNS redirect is in place.
-
-If you need to find it manually, check the Lasian/4HEAT mobile app (device info section) or capture one HTTP request from the module on your network:
-
-```bash
-# The module polls the cloud every ~60s with id=<DEVICE_ID> in the URL
-tcpdump -i any -c 1 -A "src host MODULE_IP and dst port 80" 2>/dev/null | grep -oP 'id=\K[0-9]+'
-```
+The Device ID is printed on the module's label. You can also find it in the Lasian/4HEAT mobile app (device info section).
 
 ### Options
 
@@ -122,11 +114,13 @@ The 4HEAT Lite module's local TCP API is **read-only** — write commands (tempe
 
 ### Proxy Endpoints
 
-The proxy registers three endpoints on HA's existing web server (port 8123):
+The proxy registers the following endpoints on HA's existing web server (port 8123):
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
+| `/api/devices/register` | POST | Module registers on boot before polling |
 | `/api/devices/commands` | GET | Module polls for pending write commands |
+| `/api/Devices/timeAlign` | GET | Module syncs its clock after commands poll |
 | `/api/devices/store` | POST | Module uploads sensor data (pushed to coordinator for real-time updates) |
 | `/api/devices/cron` | POST | Module uploads schedule data |
 
@@ -137,25 +131,33 @@ The proxy registers three endpoints on HA's existing web server (port 8123):
 
 ### Network Setup (OpenWrt)
 
-The module connects to `wifi4heat-linux.azurewebsites.net` on port 80. To redirect this traffic to HA, configure DNS override and firewall DNAT on your router.
+The module connects to `wifi4heat-linux.azurewebsites.net` on port 80 (HTTP). To redirect this traffic to HA, you need a DNS override and a firewall DNAT rule on your router. The DNAT target depends on whether HA listens on HTTP or HTTPS.
 
-**DNS override** — resolve the cloud hostname to your router:
+#### Step 1: DNS override
+
+Resolve the cloud hostname to your router's LAN IP:
 
 ```bash
-uci add_list dhcp.@dnsmasq[0].address='/wifi4heat-linux.azurewebsites.net/192.168.1.1'
+uci add_list dhcp.@dnsmasq[0].address='/wifi4heat-linux.azurewebsites.net/ROUTER_IP'
 uci commit dhcp
 /etc/init.d/dnsmasq restart
 ```
 
-**Firewall DNAT** — redirect module traffic from router:80 to HA:8123:
+#### Step 2: Firewall DNAT
+
+Choose the scenario that matches your HA setup:
+
+**Scenario A — HA listens on HTTP (default)**
+
+If `http:` in `configuration.yaml` has no `ssl_certificate` configured, HA accepts plain HTTP on port 8123. DNAT directly to HA:
 
 ```bash
 uci add firewall redirect
 uci set firewall.@redirect[-1].name='4heat-proxy'
 uci set firewall.@redirect[-1].src='lan'
-uci set firewall.@redirect[-1].src_ip='192.168.1.50'
+uci set firewall.@redirect[-1].src_ip='MODULE_IP'
 uci set firewall.@redirect[-1].dest='lan'
-uci set firewall.@redirect[-1].dest_ip='192.168.1.10'
+uci set firewall.@redirect[-1].dest_ip='HA_IP'
 uci set firewall.@redirect[-1].dest_port='8123'
 uci set firewall.@redirect[-1].proto='tcp'
 uci set firewall.@redirect[-1].target='DNAT'
@@ -163,7 +165,47 @@ uci commit firewall
 /etc/init.d/firewall restart
 ```
 
-Replace `192.168.1.50` with your module's IP, `192.168.1.1` with your router's IP, and `192.168.1.10` with your HA server's IP.
+**Scenario B — HA listens on HTTPS**
+
+If HA uses TLS (e.g., via `ssl_certificate`, the Let's Encrypt add-on, or the NGINX SSL proxy add-on), the module cannot connect directly — it speaks plain HTTP. Use [stunnel](https://www.stunnel.org/) on the router as a TLS wrapper:
+
+```bash
+# Install stunnel
+apk add stunnel   # OpenWrt 25.x+
+# opkg install stunnel  # older OpenWrt
+
+# Configure stunnel
+cat > /etc/stunnel/4heat.conf << 'EOF'
+pid = /var/run/stunnel-4heat.pid
+[4heat-proxy]
+client = yes
+accept = 8180
+connect = HA_IP:8123
+verifyChain = no
+EOF
+
+# Enable and start
+/etc/init.d/stunnel enable
+/etc/init.d/stunnel start
+```
+
+Then DNAT to stunnel instead of HA:
+
+```bash
+uci add firewall redirect
+uci set firewall.@redirect[-1].name='4heat-proxy'
+uci set firewall.@redirect[-1].src='lan'
+uci set firewall.@redirect[-1].src_ip='MODULE_IP'
+uci set firewall.@redirect[-1].dest='lan'
+uci set firewall.@redirect[-1].dest_ip='ROUTER_IP'
+uci set firewall.@redirect[-1].dest_port='8180'
+uci set firewall.@redirect[-1].proto='tcp'
+uci set firewall.@redirect[-1].target='DNAT'
+uci commit firewall
+/etc/init.d/firewall restart
+```
+
+Replace `MODULE_IP` with your module's IP, `ROUTER_IP` with your router's LAN IP, and `HA_IP` with your Home Assistant server's IP.
 
 > **Note**: LAN-to-LAN DNAT (hairpin NAT) may require an additional masquerade rule on some OpenWrt configurations.
 
@@ -172,7 +214,7 @@ Replace `192.168.1.50` with your module's IP, `192.168.1.1` with your router's I
 To restore cloud connectivity, remove the DNS override and firewall redirect:
 
 ```bash
-uci del_list dhcp.@dnsmasq[0].address='/wifi4heat-linux.azurewebsites.net/192.168.1.1'
+uci del_list dhcp.@dnsmasq[0].address='/wifi4heat-linux.azurewebsites.net/ROUTER_IP'
 uci commit dhcp
 /etc/init.d/dnsmasq restart
 # Remove the firewall redirect (find its index with: uci show firewall | grep 4heat)
