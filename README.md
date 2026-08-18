@@ -3,7 +3,7 @@
 > **WARNING: This integration is a Work in Progress and currently in Beta.**
 > Use at your own risk. This software is provided "as is", without warranty of any kind. We are not responsible for bricked stoves, thermonuclear war, your house burning down, or you getting fired because the pellet stove kept you so warm you overslept. Please do some research if you have any concerns about features included in this integration before using it! YOU are choosing to use this, and if you point the finger at us for messing up your setup, we will laugh at you.
 
-Home Assistant custom integration for pellet stoves equipped with a **4HEAT Lite** WiFi module. Communicates locally over TCP using the 2WC protocol — no cloud dependency for sensor data. Optional cloud API proxy enables write commands (temperature, ON/OFF) without modifying the module's firmware.
+Home Assistant custom integration for pellet stoves equipped with a **4HEAT Lite** WiFi module. Communicates locally over TCP using the 2WC protocol — no cloud dependency for sensor data. Optional cloud API proxy enables write commands (temperature, ON/OFF) and keeps the Lasian/4HEAT mobile app in sync.
 
 ## Compatibility
 
@@ -17,29 +17,13 @@ Tested with a Lasian Eriste air pellet stove. Should work with any stove using a
 
 ## Features
 
-### Sensors
-| Entity | Description |
-|--------|-------------|
-| State | Stove operating state (OFF, Check Up, Ignition, Stabilization, Run, Modulation, Extinguishing, etc.) |
-| Error | Active error description (None, Failed Ignition, Exhaust over Temperature, etc.) |
-| Exhaust Temperature | Exhaust gas temperature in °C |
-| Room Temperature | Room temperature in °C (0.1° precision) |
-| Target Temperature | Configured target room temperature in °C |
-| Power Level | Current power level setting (1-7) |
-| Running | Binary sensor — ON when stove is in any active state |
-| Error Active | Binary sensor — ON when an error is present |
+- **Sensors**: State, error, exhaust temperature, room temperature, target temperature, power level, running and error binary sensors. See [Sensors & Entities](docs/SENSORS.md) for the full list, register map, and 2WC protocol details.
 
-Diagnostic sensors for unmapped response bytes are available but disabled by default. Enable them from the entity settings to help identify additional data fields.
+- **Climate entity**: Target temperature control, HVAC modes (OFF/HEAT), power presets. Write commands require the cloud API proxy. See [Sensors & Entities](docs/SENSORS.md#climate-entity).
 
-### Climate Entity
+- **Cloud API Proxy**: Intercepts module cloud traffic to enable write commands from HA and bidirectional sync with the Lasian mobile app. Two modes available: `local_only` and `cloud_sync`. See [Proxy Modes](docs/PROXY_MODES.md) for architecture, network setup (HTTP and HTTPS scenarios), and configuration.
 
-A climate entity is always created for display (current/target temperature, stove state). Write commands (temperature, ON/OFF, power) require the cloud API proxy — without it, changes are logged but not sent. When the proxy is enabled:
-- **HVAC modes**: OFF / HEAT (ON/OFF command register not yet captured — placeholder)
-- **Target temperature**: 10–40°C, 0.5°C step
-- **Preset modes**: Power 1–7 (power write command not yet captured — placeholder)
-- **HVAC action**: OFF, Preheating (ignition), Heating (run/modulation), Idle (extinguishing/standby)
-
-Temperature changes are queued and delivered to the stove via the proxy within ~60 seconds (module polling interval).
+- **Proxy Endpoints**: The proxy implements 5 endpoints matching the 4HEAT cloud API. See [Proxy Endpoints](docs/PROXY_ENDPOINTS.md) for request/response formats, values decoding, and device lookup logic.
 
 ## Installation
 
@@ -75,12 +59,6 @@ With manual installation you will not receive update notifications.
 5. If you selected Cloud sync, enter your 4HEAT account credentials (same email/password as the Lasian/4HEAT mobile app). These are used once to retrieve the DeviceKey from the cloud and are **not stored**.
 6. The integration will verify connectivity before completing setup
 
-### Multiple Stoves
-
-To add multiple stoves, run the "Add Integration" flow once per stove — each gets its own config entry with its own module IP. The proxy routes commands and sensor data to the correct stove using the device ID from each module's cloud polling requests. Device IDs are auto-detected independently per stove.
-
-Each module needs its own firewall DNAT rule (`src_ip` = that module's IP).
-
 ### Device ID
 
 The Device ID is printed on the module's label. You can also find it in the Lasian/4HEAT mobile app (device info section).
@@ -90,188 +68,27 @@ The Device ID is printed on the module's label. You can also find it in the Lasi
 After setup, go to the integration's options to change:
 - **Proxy mode**: `local_only` (default) or `cloud_sync` (forwards data to/from Azure so the Lasian app stays in sync)
 
-## Cloud API Proxy
+### Multiple Stoves
 
-The 4HEAT Lite module's local TCP API is **read-only** — write commands (temperature changes, ON/OFF) are only accepted via cloud polling. The integration includes an embedded HTTP proxy using Home Assistant's native `HomeAssistantView` pattern that intercepts the module's cloud traffic and injects local commands.
+To add multiple stoves, run the "Add Integration" flow once per stove — each gets its own config entry with its own module IP. Each module needs its own firewall DNAT rule (`src_ip` = that module's IP). See [Proxy Modes](docs/PROXY_MODES.md#multiple-modules).
 
-### Architecture
+### Network Setup
 
-```
-                    ┌──────────────┐
-                    │  Lasian App   │ (cloud_sync mode only)
-                    └──────┬───────┘
-                           │
-                    ┌──────▼───────┐
-                    │  Azure Cloud  │ (bypassed in local_only mode)
-                    └──────▲───────┘
-                           │ forwarded (cloud_sync only)
-┌─────────┐  RS485    ┌───┴───────────┐  HTTP     ┌──────────────────────┐
-│  Stove  │◄─────────►│ 4HEAT Module  │◄─────────►│  HA (port 8123)      │
-│         │  Tiemme   │   (.50)       │ DNAT:80   │  HomeAssistantView   │
-└─────────┘           └───────────────┘           │  proxy endpoints     │
-                                                  └──────────────────────┘
-```
+The cloud API proxy requires a DNS override and firewall DNAT rule on your router. Setup differs depending on whether HA uses HTTP or HTTPS — see [Network Setup](docs/PROXY_MODES.md#network-setup-openwrt) for step-by-step instructions for both scenarios.
 
-### Proxy Endpoints
-
-The proxy registers the following endpoints on HA's existing web server (port 8123):
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/devices/register` | POST | Module registers on boot before polling |
-| `/api/devices/commands` | GET | Module polls for pending write commands |
-| `/api/Devices/timeAlign` | GET | Module syncs its clock after commands poll |
-| `/api/devices/store` | POST | Module uploads sensor data (pushed to coordinator for real-time updates) |
-| `/api/devices/cron` | POST | Module uploads schedule data |
-
-### Proxy Modes
-
-- **`local_only`** (default): Module traffic stays local. Cloud is fully bypassed. The Lasian mobile app will NOT work.
-- **`cloud_sync`**: Commands from both HA and the Lasian app are merged. Sensor data is forwarded to Azure so the app stays in sync.
-
-### Network Setup (OpenWrt)
-
-The module connects to `wifi4heat-linux.azurewebsites.net` on port 80 (HTTP). To redirect this traffic to HA, you need a DNS override and a firewall DNAT rule on your router. The DNAT target depends on whether HA listens on HTTP or HTTPS.
-
-#### Step 1: DNS override
-
-Resolve the cloud hostname to your router's LAN IP:
-
-```bash
-uci add_list dhcp.@dnsmasq[0].address='/wifi4heat-linux.azurewebsites.net/ROUTER_IP'
-uci commit dhcp
-/etc/init.d/dnsmasq restart
-```
-
-#### Step 2: Firewall DNAT
-
-Choose the scenario that matches your HA setup:
-
-**Scenario A — HA listens on HTTP (default)**
-
-If `http:` in `configuration.yaml` has no `ssl_certificate` configured, HA accepts plain HTTP on port 8123. DNAT directly to HA:
-
-```bash
-uci add firewall redirect
-uci set firewall.@redirect[-1].name='4heat-proxy'
-uci set firewall.@redirect[-1].src='lan'
-uci set firewall.@redirect[-1].src_ip='MODULE_IP'
-uci set firewall.@redirect[-1].dest='lan'
-uci set firewall.@redirect[-1].dest_ip='HA_IP'
-uci set firewall.@redirect[-1].dest_port='8123'
-uci set firewall.@redirect[-1].proto='tcp'
-uci set firewall.@redirect[-1].target='DNAT'
-uci commit firewall
-/etc/init.d/firewall restart
-```
-
-**Scenario B — HA listens on HTTPS**
-
-If HA uses TLS (e.g., via `ssl_certificate`, the Let's Encrypt add-on, or the NGINX SSL proxy add-on), the module cannot connect directly — it speaks plain HTTP. Use [stunnel](https://www.stunnel.org/) on the router as a TLS wrapper:
-
-```bash
-# Install stunnel
-apk add stunnel   # OpenWrt 25.x+
-# opkg install stunnel  # older OpenWrt
-
-# Configure stunnel
-cat > /etc/stunnel/4heat.conf << 'EOF'
-pid = /var/run/stunnel-4heat.pid
-[4heat-proxy]
-client = yes
-accept = 8180
-connect = HA_IP:8123
-verifyChain = no
-EOF
-
-# Enable and start
-/etc/init.d/stunnel enable
-/etc/init.d/stunnel start
-```
-
-Then DNAT to stunnel instead of HA:
-
-```bash
-uci add firewall redirect
-uci set firewall.@redirect[-1].name='4heat-proxy'
-uci set firewall.@redirect[-1].src='lan'
-uci set firewall.@redirect[-1].src_ip='MODULE_IP'
-uci set firewall.@redirect[-1].dest='lan'
-uci set firewall.@redirect[-1].dest_ip='ROUTER_IP'
-uci set firewall.@redirect[-1].dest_port='8180'
-uci set firewall.@redirect[-1].proto='tcp'
-uci set firewall.@redirect[-1].target='DNAT'
-uci commit firewall
-/etc/init.d/firewall restart
-```
-
-Replace `MODULE_IP` with your module's IP, `ROUTER_IP` with your router's LAN IP, and `HA_IP` with your Home Assistant server's IP.
-
-> **Note**: LAN-to-LAN DNAT (hairpin NAT) may require an additional masquerade rule on some OpenWrt configurations.
-
-### Reverting to Cloud
-
-To restore cloud connectivity, remove the DNS override and firewall redirect:
-
-```bash
-uci del_list dhcp.@dnsmasq[0].address='/wifi4heat-linux.azurewebsites.net/ROUTER_IP'
-uci commit dhcp
-/etc/init.d/dnsmasq restart
-# Remove the firewall redirect (find its index with: uci show firewall | grep 4heat)
-uci delete firewall.@redirect[N]
-uci commit firewall
-/etc/init.d/firewall restart
-```
-
-## How it works
-
-The 4HEAT Lite module exposes a TCP server on port 80. This integration sends JSON-encoded 2WC commands to read sensor registers from the stove's Tiemme controller board via the module's RS485 bus.
-
-Query: `["2WC","1","0310"]`
-Response: `["2WC","1","<38 hex chars>"]`
-
-The 19-byte response contains the stove state, error code, exhaust temperature, room temperature, and other registers. The integration polls every 30 seconds (or 120 seconds when the proxy is active and providing real-time updates via `/api/devices/store`).
-
-### Register map (0310 response)
-
-| Byte(s) | Field | Unit | Notes |
-|---------|-------|------|-------|
-| 0 | Header | - | Always 0x10 |
-| 1 | Error | enum | See `ERROR_NAMES` in const.py |
-| 2 | On/Off | flag | 0=off, 1=on (stays 1 during cooldown) |
-| 4 | Exhaust temp | °C | 1-byte unsigned |
-| 5 | State | enum | See `STATE_NAMES` in const.py |
-| 10-11 | Room temp | 0.1°C | 2-byte big-endian |
-
-Bytes 3, 6-9, 12-18 are not yet mapped. Enable the diagnostic sensors to help identify them while the stove is running.
-
-### Write command format
-
-Write commands use function code `05` followed by the register address and data:
-
-```
-["2WC","1","05<register><data>"]
-```
-
-Example — set target temperature to 28.8°C:
-```
-["2WC","1","0512005a0120006401900001000100"]
-```
-
-- `05` — write function
-- `12005a` — register group 12, address 005a (target temperature)
-- `0120` — 28.8°C (0x120 = 288, in 0.1°C units)
-- `0064` — min 10.0°C
-- `0190` — max 40.0°C
-- `0001000100` — trailing register data
-
-## Known limitations
+## Known Limitations
 
 - **ON/OFF and power commands not yet captured**: The ON/OFF and power level write registers have not been captured from cloud traffic yet. Temperature changes work via the proxy.
 - **Write latency ~60s**: Commands are delivered when the module polls (every ~60 seconds). Not suitable for safety-critical controls.
 - **Air stoves only** (for now): tested with an air stove. Hydro (water) stoves may expose additional registers (boiler pressure, water temperature) that are not yet mapped.
 
-## Related projects
+## Documentation
+
+- [Sensors & Entities](docs/SENSORS.md) — entity list, register map, 2WC protocol, state/error codes
+- [Proxy Modes](docs/PROXY_MODES.md) — architecture, local_only vs cloud_sync, network setup, stunnel
+- [Proxy Endpoints](docs/PROXY_ENDPOINTS.md) — endpoint reference, request/response formats, values decoding
+
+## Related Projects
 
 - [homeassistant-4heat](https://github.com/zaubererty/homeassistant-4heat) — HA integration for the older 4HEAT module (SEL/SEC protocol)
 - [4heat-esphome](https://github.com/leoshusar/4heat-esphome) — ESPHome component for direct ESP32-to-stove serial connection (Tiemme protocol)
