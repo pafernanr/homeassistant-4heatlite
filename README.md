@@ -7,7 +7,7 @@ Home Assistant custom integration for pellet stoves equipped with a **4HEAT Lite
 
 ## Compatibility
 
-This integration works with the **4HEAT Lite** module (ESP32-based, ESP-IDF firmware). It does NOT work with the older 4HEAT module that uses the SEL/SEC protocol — for that, see [homeassistant-4heat](https://github.com/zaubererty/homeassistant-4heat).
+This integration works with the **4HEAT Lite** WiFi module (Tiemme). It does NOT work with the older 4HEAT module that uses the SEL/SEC protocol — for that, see [homeassistant-4heat](https://github.com/zaubererty/homeassistant-4heat).
 
 How to tell which module you have:
 - **4HEAT Lite** (this integration): sends `["2WC","1","0310"]` JSON commands over TCP:80
