@@ -4,11 +4,6 @@
 
 - [ ] Implement global configuration via HA GUI to set `_LOGGER` level per component (debug/info/warning/error). Allow toggling verbose logging for proxy endpoints without restarting HA or editing YAML.
 
-## /cron endpoint
+## /cron endpoint — WONTFIX
 
-- [ ] Capture and decode cron POST body from module
-- [ ] Parse schedule/timer data in `StoveCronView`
-- [ ] Store parsed schedule in coordinator
-- [ ] Expose schedule as HA entities
-- [ ] Implement GET `/api/devices/cron` on proxy (read schedule back)
-- [ ] Write-back: send schedule changes to module via command queue
+Stove-side scheduling (H24 weekly program, CCG daily timer) is redundant with HA automations. HA already controls ON/OFF, temperature, and power via the proxy command queue. Using HA schedule helpers and automations is more flexible and keeps all logic in one place. Proxy stub (`StoveCronView`) stays as-is to acknowledge module POST requests.
