@@ -361,3 +361,54 @@ class StoveCronView(HomeAssistantView):
                 _LOGGER.debug("Cloud cron forward: %d", resp.status)
         except Exception:
             _LOGGER.warning("Cloud cron forward failed", exc_info=True)
+
+
+class ProxyDiagView(HomeAssistantView):
+    """GET /api/devices/diag — test cloud connectivity (remove after debugging)."""
+
+    url = "/api/devices/diag"
+    name = "api:devices:diag"
+    requires_auth = False
+
+    def __init__(self, state):
+        self._state = state
+
+    async def get(self, request):
+        result = {"devices": {}, "hosts": dict(self._state.get("hosts", {}))}
+
+        for did, entry in self._state.get("devices", {}).items():
+            result["devices"][did] = {
+                "proxy_mode": entry.get("proxy_mode"),
+                "has_cloud_session": entry.get("cloud_session") is not None,
+                "has_queue": entry.get("queue") is not None,
+                "device_key": entry.get("device_key", "")[:8] + "...",
+            }
+
+        cloud_session = None
+        for entry in self._state.get("devices", {}).values():
+            cloud_session = entry.get("cloud_session")
+            if cloud_session:
+                break
+
+        if not cloud_session:
+            result["cloud_test"] = "no cloud session"
+            return self.json(result)
+
+        url = f"http://{CLOUD_API_IP}:{CLOUD_API_PORT}/api/devices/summary?ids%5B0%5D=<DEVICE_ID>"
+        headers = {"Host": CLOUD_API_HOST}
+        try:
+            async with cloud_session.get(
+                url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                result["cloud_test"] = {
+                    "status": resp.status,
+                    "url": url,
+                }
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data:
+                        result["cloud_test"]["is_online"] = data[0].get("IsOnline")
+        except Exception as exc:
+            result["cloud_test"] = {"error": str(exc), "type": type(exc).__name__}
+
+        return self.json(result)
