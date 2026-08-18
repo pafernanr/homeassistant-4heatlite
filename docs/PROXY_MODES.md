@@ -167,16 +167,3 @@ uci commit firewall
 
 The module will reconnect to Azure within ~60 seconds.
 
-## Module Firmware Behavior
-
-The module (ESP32, ESP-IDF firmware) follows a strict request sequence each polling cycle:
-
-1. `POST /api/devices/register` — only on boot, receives DeviceKey
-2. `GET /api/devices/commands?id=<ID>&removefromserver=true` — polls every ~60s
-3. `GET /api/Devices/timeAlign?deviceKey=<KEY>` — clock sync after each commands poll
-4. `POST /api/devices/store` — sends sensor data on value change and periodically (~15 min keepalive)
-5. `POST /api/devices/cron` — sends schedule data periodically
-
-**Important**: If any step returns an error (e.g., 404 for timeAlign), the module may stop progressing through the sequence. All proxy endpoints must return valid responses.
-
-The module maintains a single persistent TCP connection (HTTP keep-alive) to the server for all requests.
