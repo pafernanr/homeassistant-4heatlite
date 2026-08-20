@@ -40,7 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up 4HEAT Lite from a config entry."""
     coordinator = FourHeatLiteCoordinator(hass, entry.data[CONF_HOST])
 
-    proxy_mode = entry.options.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
+    proxy_mode = entry.options.get(CONF_PROXY_MODE, "local_only")
     device_id = entry.data.get(CONF_DEVICE_ID, "")
     host = entry.data[CONF_HOST]
 
