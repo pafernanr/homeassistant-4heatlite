@@ -37,7 +37,7 @@ async def async_setup_entry(
 
 class StoveClimate(CoordinatorEntity, ClimateEntity):
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_target_temperature_step = 0.5
+    _attr_target_temperature_step = 0.1
     _attr_min_temp = 10.0
     _attr_max_temp = 40.0
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
