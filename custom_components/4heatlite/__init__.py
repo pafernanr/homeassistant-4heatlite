@@ -17,7 +17,6 @@ from .const import (
     DATA_COORDINATOR,
     DOMAIN,
     PROXY_MODE_CLOUD,
-    PROXY_MODE_LOCAL,
     PROXY_SESSION,
 )
 from .coordinator import FourHeatLiteCoordinator
@@ -32,7 +31,7 @@ from .proxy import (
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS_BASE = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.CLIMATE]
 DATA_PLATFORMS = "platforms"
 PROXY_STATE = "proxy_state"
 
@@ -42,62 +41,61 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = FourHeatLiteCoordinator(hass, entry.data[CONF_HOST])
 
     proxy_mode = entry.options.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
-    proxy_enabled = proxy_mode != PROXY_MODE_LOCAL
+    device_id = entry.data.get(CONF_DEVICE_ID, "")
+    host = entry.data[CONF_HOST]
 
     hass.data.setdefault(DOMAIN, {})
-    entry_data = {DATA_COORDINATOR: coordinator}
 
-    if proxy_enabled:
-        device_id = entry.data.get(CONF_DEVICE_ID, "")
-        host = entry.data[CONF_HOST]
+    command_queue = asyncio.Queue()
+    cloud_session = None
+    if proxy_mode == PROXY_MODE_CLOUD:
+        cloud_session = aiohttp.ClientSession()
 
-        command_queue = asyncio.Queue()
-        entry_data[COMMAND_QUEUE] = command_queue
+    coordinator.set_proxy_mode(True)
 
-        cloud_session = None
-        if proxy_mode == PROXY_MODE_CLOUD:
-            cloud_session = aiohttp.ClientSession()
-            entry_data[PROXY_SESSION] = cloud_session
+    proxy_state = hass.data[DOMAIN].get(PROXY_STATE)
+    if proxy_state is None:
+        proxy_state = {"devices": {}, "hosts": {}, "pending": {}, "hass": hass}
+        hass.data[DOMAIN][PROXY_STATE] = proxy_state
 
-        coordinator.set_proxy_mode(True)
+    device_entry = {
+        "queue": command_queue,
+        "coordinator": coordinator,
+        "proxy_mode": proxy_mode,
+        "cloud_session": cloud_session,
+        "host": host,
+        "entry_id": entry.entry_id,
+        "device_key": entry.data.get(CONF_DEVICE_KEY),
+    }
 
-        proxy_state = hass.data[DOMAIN].get(PROXY_STATE)
-        if proxy_state is None:
-            proxy_state = {"devices": {}, "hosts": {}, "pending": {}, "hass": hass}
-            hass.data[DOMAIN][PROXY_STATE] = proxy_state
+    if device_id:
+        proxy_state["devices"][device_id] = device_entry
+        proxy_state["hosts"][host] = device_id
+    else:
+        proxy_state["pending"][entry.entry_id] = device_entry
 
-        device_entry = {
-            "queue": command_queue,
-            "coordinator": coordinator,
-            "proxy_mode": proxy_mode,
-            "cloud_session": cloud_session,
-            "host": host,
-            "entry_id": entry.entry_id,
-            "device_key": entry.data.get(CONF_DEVICE_KEY),
-        }
+    if not proxy_state.get("_views_registered"):
+        hass.http.register_view(StoveRegisterView(proxy_state))
+        hass.http.register_view(StoveCommandsView(proxy_state))
+        hass.http.register_view(StoveStoreView(proxy_state))
+        hass.http.register_view(StoveCronView(proxy_state))
+        hass.http.register_view(StoveTimeAlignView(proxy_state))
+        hass.http.register_view(ProxyDiagView(proxy_state))
+        proxy_state["_views_registered"] = True
 
-        if device_id:
-            proxy_state["devices"][device_id] = device_entry
-            proxy_state["hosts"][host] = device_id
-        else:
-            proxy_state["pending"][entry.entry_id] = device_entry
+    entry_data = {
+        DATA_COORDINATOR: coordinator,
+        COMMAND_QUEUE: command_queue,
+    }
+    if cloud_session:
+        entry_data[PROXY_SESSION] = cloud_session
 
-        if not proxy_state.get("_views_registered"):
-            hass.http.register_view(StoveRegisterView(proxy_state))
-            hass.http.register_view(StoveCommandsView(proxy_state))
-            hass.http.register_view(StoveStoreView(proxy_state))
-            hass.http.register_view(StoveCronView(proxy_state))
-            hass.http.register_view(StoveTimeAlignView(proxy_state))
-            hass.http.register_view(ProxyDiagView(proxy_state))
-            proxy_state["_views_registered"] = True
-
-    platforms = [*PLATFORMS_BASE, Platform.CLIMATE] if proxy_enabled else PLATFORMS_BASE
-    entry_data[DATA_PLATFORMS] = list(platforms)
+    entry_data[DATA_PLATFORMS] = list(PLATFORMS)
 
     hass.data[DOMAIN][entry.entry_id] = entry_data
 
     await coordinator.async_config_entry_first_refresh()
-    await hass.config_entries.async_forward_entry_setups(entry, platforms)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
@@ -113,7 +111,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
 
-    platforms = entry_data.get(DATA_PLATFORMS, PLATFORMS_BASE)
+    platforms = entry_data.get(DATA_PLATFORMS, PLATFORMS)
     unload_ok = await hass.config_entries.async_unload_platforms(entry, platforms)
 
     if unload_ok:
