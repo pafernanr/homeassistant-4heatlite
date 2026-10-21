@@ -24,7 +24,22 @@
         "data": {
           "proxy_mode": "Proxy mode"
         }
+      },
+      "schedule": {
+        "title": "Weekly Heating Schedule",
+        "description": "Edit the stove's weekly heating schedule. Leave empty to keep current schedule unchanged.\n\nFormat: eco/comfort/comfort2 temperatures and time slots with days, start, end, and band (eco/comfort/comfort2).",
+        "data": {
+          "schedule": "Schedule (YAML)"
+        }
       }
+    },
+    "error": {
+      "invalid_schedule": "Invalid schedule format. Required keys: eco, comfort, comfort2, slots.",
+      "invalid_temperature": "Temperature values must be between 10.0 and 40.0.",
+      "invalid_time": "Time values must be in HH:MM format with start before end.",
+      "invalid_day": "Day names must be: mon, tue, wed, thu, fri, sat, sun.",
+      "overlapping_slots": "Time slots overlap on the same day.",
+      "schedule_send_failed": "Failed to send schedule to module."
     }
   }
 }

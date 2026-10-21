@@ -74,6 +74,16 @@ COMMAND_QUEUE = "command_queue"
 PROXY_SESSION = "proxy_session"
 PROXY_POLL_INTERVAL = 120
 
+# Schedule constants
+QUERY_SCHEDULE = '["CCG","0"]'
+MINUTES_PER_DAY = 1440
+DAY_NAMES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+DAY_OFFSETS = {name: i * MINUTES_PER_DAY for i, name in enumerate(DAY_NAMES)}
+BAND_NAMES = ["off", "eco", "comfort", "comfort2"]
+TEMP_SCALE = 10
+SERVICE_GET_SCHEDULE = "get_schedule"
+SERVICE_SET_SCHEDULE = "set_schedule"
+
 # Write command constants
 WRITE_FUNCTION = "05"
 REGISTER_TEMP = "12005a"

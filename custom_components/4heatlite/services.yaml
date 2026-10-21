@@ -1,0 +1,27 @@
+get_schedule:
+  name: Get Schedule
+  description: Read the current weekly heating schedule from the stove module.
+  fields:
+    config_entry_id:
+      name: Config Entry ID
+      description: Target stove (optional if only one configured).
+      required: false
+      selector:
+        text:
+
+set_schedule:
+  name: Set Schedule
+  description: Write a weekly heating schedule to the stove module.
+  fields:
+    config_entry_id:
+      name: Config Entry ID
+      description: Target stove (optional if only one configured).
+      required: false
+      selector:
+        text:
+    schedule:
+      name: Schedule
+      description: "Schedule as YAML with keys: eco, comfort, comfort2 (temperatures), and slots (list with days, start, end, band)."
+      required: true
+      selector:
+        object:

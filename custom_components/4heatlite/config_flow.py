@@ -9,11 +9,15 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_NAME
 
+from homeassistant.helpers.selector import ObjectSelector
+
 from .api import FourHeatLiteApi
 from .const import (
+    COMMAND_QUEUE,
     CONF_DEVICE_ID,
     CONF_DEVICE_KEY,
     CONF_PROXY_MODE,
+    DATA_COORDINATOR,
     DOMAIN,
     PROXY_MODE_CLOUD,
     PROXY_MODE_LOCAL,
@@ -187,12 +191,19 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return FourHeatLiteOptionsFlow()
 
 
+PROXY_STATE = "proxy_state"
+
+
 class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
     """Handle options for 4HEAT Lite."""
 
+    def __init__(self):
+        self._proxy_mode = None
+
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            self._proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
+            return await self.async_step_schedule()
 
         proxy_mode = self.config_entry.options.get(
             CONF_PROXY_MODE, PROXY_MODE_LOCAL
@@ -214,3 +225,61 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                 }
             ),
         )
+
+    async def async_step_schedule(self, user_input=None):
+        errors = {}
+
+        if user_input is not None:
+            schedule_data = user_input.get("schedule")
+            if schedule_data:
+                error = FourHeatLiteApi.validate_schedule(schedule_data)
+                if error:
+                    errors["schedule"] = error
+                else:
+                    cmd = FourHeatLiteApi.build_schedule_command(schedule_data)
+                    entry_data = self.hass.data.get(DOMAIN, {}).get(
+                        self.config_entry.entry_id, {}
+                    )
+                    queue = entry_data.get(COMMAND_QUEUE)
+                    if queue:
+                        await queue.put(cmd)
+                    else:
+                        errors["schedule"] = "schedule_send_failed"
+
+            if not errors:
+                return self.async_create_entry(
+                    data={CONF_PROXY_MODE: self._proxy_mode}
+                )
+
+        current_schedule = await self._get_current_schedule()
+
+        return self.async_show_form(
+            step_id="schedule",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional("schedule", default=current_schedule): ObjectSelector(),
+                }
+            ),
+            errors=errors,
+        )
+
+    async def _get_current_schedule(self) -> dict | None:
+        """Read current schedule from proxy cache or module TCP."""
+        domain_data = self.hass.data.get(DOMAIN, {})
+        proxy_state = domain_data.get(PROXY_STATE, {})
+
+        for dev in proxy_state.get("devices", {}).values():
+            if dev.get("entry_id") == self.config_entry.entry_id:
+                cached = dev.get("last_schedule")
+                if cached:
+                    return cached
+                break
+
+        entry_data = domain_data.get(self.config_entry.entry_id, {})
+        coordinator = entry_data.get(DATA_COORDINATOR)
+        if coordinator:
+            return await self.hass.async_add_executor_job(
+                coordinator.api.query_schedule
+            )
+
+        return None

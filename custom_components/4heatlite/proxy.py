@@ -19,6 +19,7 @@ from .const import (
     CONF_DEVICE_KEY,
     DOMAIN,
     PROXY_MODE_CLOUD,
+    QUERY_SCHEDULE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -356,6 +357,13 @@ class StoveCronView(HomeAssistantView):
             return self.json(ok_response)
 
         _LOGGER.debug("Cron data received from device %s", device_id)
+
+        command = body.get("Command") if isinstance(body, dict) else body
+        if isinstance(command, list) and command and str(command[0]) == "H24":
+            parsed = FourHeatLiteApi.parse_h24_response(command)
+            if parsed and entry:
+                entry["last_schedule"] = parsed
+                _LOGGER.debug("Schedule stored for device %s", device_id)
 
         if entry:
             proxy_mode = entry.get("proxy_mode")

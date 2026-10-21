@@ -5,7 +5,12 @@ import logging
 import socket
 
 from .const import (
+    BAND_NAMES,
+    DAY_NAMES,
+    DAY_OFFSETS,
+    MINUTES_PER_DAY,
     QUERY_CONFIG,
+    QUERY_SCHEDULE,
     QUERY_SENSORS,
     REGISTER_TEMP,
     SOCKET_BUFFER,
@@ -13,6 +18,7 @@ from .const import (
     TCP_PORT,
     TEMP_MAX_RAW,
     TEMP_MIN_RAW,
+    TEMP_SCALE,
     TEMP_WRITE_SUFFIX,
     WRITE_FUNCTION,
 )
@@ -136,3 +142,222 @@ class FourHeatLiteApi:
     def build_off_command() -> list:
         """Build OFF command (spegnimento from FileMap)."""
         return ["2WC", "1", "05050000"]
+
+    def query_schedule(self) -> dict | None:
+        """Query the module's weekly schedule via CCG/H24 protocol."""
+        try:
+            response = self._send(QUERY_SCHEDULE)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            _LOGGER.debug("Schedule query failed: %s", exc)
+            return None
+        return self.parse_h24_response(response)
+
+    @staticmethod
+    def parse_h24_response(response: list) -> dict | None:
+        """Parse an H24 schedule response into a user-facing dict."""
+        if not isinstance(response, list) or len(response) < 8:
+            return None
+        if str(response[0]) != "H24":
+            return None
+
+        offset = 1 if str(response[2]).startswith("#") else 0
+        try:
+            eco_raw = int(response[3 + offset])
+            comfort_raw = int(response[4 + offset])
+            comfort2_raw = int(response[5 + offset])
+        except (ValueError, IndexError):
+            return None
+
+        band_map = {}
+        if eco_raw:
+            band_map[eco_raw] = "eco"
+        if comfort_raw:
+            band_map[comfort_raw] = "comfort"
+        if comfort2_raw:
+            band_map[comfort2_raw] = "comfort2"
+
+        transitions = []
+        start_idx = 6 + offset
+        for i in range(start_idx, len(response) - 1, 2):
+            try:
+                minute = int(response[i])
+                temp = int(response[i + 1])
+            except (ValueError, IndexError):
+                break
+            transitions.append((minute, temp))
+
+        slots_raw = []
+        current_band = None
+        slot_start = None
+        for minute, temp in transitions:
+            band = band_map.get(temp)
+            if band and current_band is None:
+                current_band = band
+                slot_start = minute
+            elif (band is None or band != current_band) and current_band is not None:
+                slots_raw.append((slot_start, minute, current_band))
+                if band:
+                    current_band = band
+                    slot_start = minute
+                else:
+                    current_band = None
+                    slot_start = None
+        if current_band is not None and slot_start is not None:
+            slots_raw.append((slot_start, MINUTES_PER_DAY * 7, current_band))
+
+        def _minute_to_day_time(m):
+            day_idx = m // MINUTES_PER_DAY
+            day_m = m % MINUTES_PER_DAY
+            day = DAY_NAMES[day_idx] if day_idx < 7 else DAY_NAMES[6]
+            return day, f"{day_m // 60:02d}:{day_m % 60:02d}"
+
+        day_slots = {}
+        for start_m, end_m, band in slots_raw:
+            day, start_t = _minute_to_day_time(start_m)
+            _, end_t = _minute_to_day_time(end_m)
+            key = (start_t, end_t, band)
+            day_slots.setdefault(key, []).append(day)
+
+        slots = []
+        for (start_t, end_t, band), days in day_slots.items():
+            ordered = [d for d in DAY_NAMES if d in days]
+            slots.append({
+                "days": ordered,
+                "start": start_t,
+                "end": end_t,
+                "band": band,
+            })
+        slots.sort(key=lambda s: (
+            DAY_OFFSETS.get(s["days"][0], 0) if s["days"] else 0,
+            s["start"],
+        ))
+
+        return {
+            "eco": eco_raw / TEMP_SCALE,
+            "comfort": comfort_raw / TEMP_SCALE,
+            "comfort2": comfort2_raw / TEMP_SCALE,
+            "slots": slots,
+        }
+
+    @staticmethod
+    def build_schedule_command(schedule: dict) -> list:
+        """Encode a user-facing schedule dict into an H24 command array."""
+        eco_raw = int(round(schedule["eco"] * TEMP_SCALE))
+        comfort_raw = int(round(schedule["comfort"] * TEMP_SCALE))
+        comfort2_raw = int(round(schedule["comfort2"] * TEMP_SCALE))
+
+        band_to_temp = {
+            "off": 0,
+            "eco": eco_raw,
+            "comfort": comfort_raw,
+            "comfort2": comfort2_raw,
+        }
+
+        events = []
+        for slot in schedule.get("slots", []):
+            band = slot["band"]
+            temp = band_to_temp.get(band, 0)
+            start_parts = slot["start"].split(":")
+            end_parts = slot["end"].split(":")
+            start_offset = int(start_parts[0]) * 60 + int(start_parts[1])
+            end_offset = int(end_parts[0]) * 60 + int(end_parts[1])
+
+            for day in slot["days"]:
+                base = DAY_OFFSETS[day]
+                events.append((base + start_offset, temp))
+                events.append((base + end_offset, 0))
+
+        for day in DAY_NAMES:
+            base = DAY_OFFSETS[day]
+            events.append((base, 0))
+
+        events.sort(key=lambda e: (e[0], -e[1]))
+
+        deduped = []
+        prev_temp = None
+        seen_minutes = set()
+        for minute, temp in events:
+            if minute in seen_minutes:
+                continue
+            seen_minutes.add(minute)
+            if temp != prev_temp:
+                deduped.append((minute, temp))
+                prev_temp = temp
+
+        data = []
+        for minute, temp in deduped:
+            data.extend([str(minute), str(temp)])
+
+        count = len(deduped) + 5
+        return [
+            "H24", str(count), "#13", "0",
+            str(eco_raw), str(comfort_raw), str(comfort2_raw),
+            *data,
+        ]
+
+    @staticmethod
+    def validate_schedule(data) -> str | None:
+        """Validate a schedule dict. Returns error string or None."""
+        if not isinstance(data, dict):
+            return "invalid_schedule"
+
+        for key in ("eco", "comfort", "comfort2"):
+            val = data.get(key)
+            if val is None:
+                return "invalid_schedule"
+            try:
+                val = float(val)
+            except (TypeError, ValueError):
+                return "invalid_temperature"
+            if not 10.0 <= val <= 40.0:
+                return "invalid_temperature"
+
+        slots = data.get("slots")
+        if not isinstance(slots, list):
+            return "invalid_schedule"
+
+        day_intervals: dict[str, list[tuple[int, int]]] = {}
+        for slot in slots:
+            if not isinstance(slot, dict):
+                return "invalid_schedule"
+
+            days = slot.get("days")
+            if not isinstance(days, list) or not days:
+                return "invalid_day"
+            for d in days:
+                if d not in DAY_NAMES:
+                    return "invalid_day"
+
+            for field in ("start", "end"):
+                val = slot.get(field, "")
+                if not isinstance(val, str):
+                    return "invalid_time"
+                parts = val.split(":")
+                if len(parts) != 2:
+                    return "invalid_time"
+                try:
+                    h, m = int(parts[0]), int(parts[1])
+                except ValueError:
+                    return "invalid_time"
+                if not (0 <= h <= 23 and 0 <= m <= 59):
+                    return "invalid_time"
+
+            start_m = int(slot["start"].split(":")[0]) * 60 + int(slot["start"].split(":")[1])
+            end_m = int(slot["end"].split(":")[0]) * 60 + int(slot["end"].split(":")[1])
+            if start_m >= end_m:
+                return "invalid_time"
+
+            band = slot.get("band", "")
+            if band not in BAND_NAMES or band == "off":
+                return "invalid_schedule"
+
+            for d in days:
+                day_intervals.setdefault(d, []).append((start_m, end_m))
+
+        for d, intervals in day_intervals.items():
+            intervals.sort()
+            for i in range(len(intervals) - 1):
+                if intervals[i][1] > intervals[i + 1][0]:
+                    return "overlapping_slots"
+
+        return None
