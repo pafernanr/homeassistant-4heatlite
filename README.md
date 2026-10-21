@@ -17,21 +17,19 @@ Tested with a Lasian Eriste air pellet stove. Should work with any stove using a
 
 ## Features
 
-Both modes share these features:
+- **Sensors** (no proxy required): State, error, exhaust temperature, room temperature, target temperature, power level, running and error binary sensors. Read directly from the module over TCP (2WC protocol) — work without any DNS or firewall setup. See [Sensors & Entities](docs/SENSORS.md) for the full list, register map, and 2WC protocol details.
 
-- **Sensors**: State, error, exhaust temperature, room temperature, target temperature, power level, running and error binary sensors. See [Sensors & Entities](docs/SENSORS.md) for the full list, register map, and 2WC protocol details.
+- **Climate entity** (requires proxy): Target temperature control, HVAC modes (OFF/HEAT), power presets, ON/OFF commands. See [Sensors & Entities](docs/SENSORS.md#climate-entity).
 
-- **Climate entity**: Target temperature control, HVAC modes (OFF/HEAT), power presets, ON/OFF commands. See [Sensors & Entities](docs/SENSORS.md#climate-entity).
-
-- **Write commands** (ON/OFF, temperature, power level): Sent to the module via the proxy command queue. The module picks them up on its next poll (~60s).
-
-- **Cloud API Proxy**: Both modes intercept module cloud traffic via a local proxy. The module talks to HA instead of the 4HEAT cloud. A DNS override and firewall DNAT rule on your router redirect the module's requests to HA. See [Proxy Modes](docs/PROXY_MODES.md) for architecture and [Network Setup](docs/PROXY_MODES.md#network-setup-openwrt) for router configuration.
-
-- **Proxy Endpoints**: The proxy implements 5 endpoints matching the 4HEAT cloud API. See [Proxy Endpoints](docs/PROXY_ENDPOINTS.md) for request/response formats, values decoding, and device lookup logic.
+- **Write commands** (requires proxy): ON/OFF, temperature, and power level commands are sent to the module via the proxy command queue. The module picks them up on its next poll (~60s).
 
 ## Proxy Modes
 
-The integration supports two proxy modes, selected during setup and changeable in Options. They differ in what features are available and whether the module stays connected to the 4HEAT cloud.
+Write commands, schedule management, and mobile app sync require the **cloud API proxy**. The proxy intercepts the module's cloud traffic by redirecting it to HA via a DNS override and firewall DNAT rule on your router. See [Proxy Modes](docs/PROXY_MODES.md) for architecture and [Network Setup](docs/PROXY_MODES.md#network-setup-openwrt) for router configuration.
+
+The proxy implements 5 endpoints matching the 4HEAT cloud API. See [Proxy Endpoints](docs/PROXY_ENDPOINTS.md) for request/response formats, values decoding, and device lookup logic.
+
+Two proxy modes are available, selected during setup and changeable in Options:
 
 ### Local Only (`local_only`)
 
