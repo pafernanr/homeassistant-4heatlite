@@ -87,35 +87,13 @@ PROXY_STATE = "proxy_state"
 class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
     """Handle options for 4HEAT Lite."""
 
-    def __init__(self):
-        self._proxy_mode = None
-
     async def async_step_init(self, user_input=None):
-        if user_input is not None:
-            local_only = user_input.get("local_only", False)
-            self._proxy_mode = PROXY_MODE_LOCAL if local_only else PROXY_MODE_DIRECT
-            return await self.async_step_schedule()
-
-        current_mode = self.config_entry.options.get(
-            CONF_PROXY_MODE, PROXY_MODE_DIRECT
-        )
-
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        "local_only",
-                        default=(current_mode == PROXY_MODE_LOCAL),
-                    ): bool,
-                }
-            ),
-        )
-
-    async def async_step_schedule(self, user_input=None):
         errors = {}
 
         if user_input is not None:
+            local_only = user_input.get("local_only", False)
+            proxy_mode = PROXY_MODE_LOCAL if local_only else PROXY_MODE_DIRECT
+
             schedule_data = user_input.get("schedule")
             if schedule_data:
                 error = FourHeatLiteApi.validate_schedule(schedule_data)
@@ -138,15 +116,22 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
 
             if not errors:
                 return self.async_create_entry(
-                    data={CONF_PROXY_MODE: self._proxy_mode}
+                    data={CONF_PROXY_MODE: proxy_mode}
                 )
 
+        current_mode = self.config_entry.options.get(
+            CONF_PROXY_MODE, PROXY_MODE_DIRECT
+        )
         current_schedule = await self._get_current_schedule()
 
         return self.async_show_form(
-            step_id="schedule",
+            step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Optional(
+                        "local_only",
+                        default=(current_mode == PROXY_MODE_LOCAL),
+                    ): bool,
                     vol.Optional("schedule", default=current_schedule): ObjectSelector(),
                 }
             ),

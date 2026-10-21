@@ -20,15 +20,9 @@
   "options": {
     "step": {
       "init": {
-        "description": "Local Only blocks the module's cloud traffic and handles it locally. Requires a DNS override and firewall DNAT rule on your router. The Lasian/4HEAT mobile app will not work in this mode.",
+        "description": "Local Only blocks the module's cloud traffic and handles it locally. Requires a DNS override and firewall DNAT rule on your router. The Lasian/4HEAT mobile app will not work in this mode.\n\nEdit the weekly heating schedule below. Leave empty to keep current schedule unchanged.",
         "data": {
-          "local_only": "Local Only"
-        }
-      },
-      "schedule": {
-        "title": "Weekly Heating Schedule",
-        "description": "Edit the stove's weekly heating schedule. Leave empty to keep current schedule unchanged.\n\nFormat: eco/comfort/comfort2 temperatures and time slots with days, start, end, and band (eco/comfort/comfort2).",
-        "data": {
+          "local_only": "Local Only",
           "schedule": "Schedule (YAML)"
         }
       }
