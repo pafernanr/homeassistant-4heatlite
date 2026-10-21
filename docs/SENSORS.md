@@ -23,12 +23,12 @@
 A climate entity is always created for display (current/target temperature, stove state). Write commands (temperature, ON/OFF, power) require the [cloud API proxy](PROXY_MODES.md) — without it, changes are logged but not sent.
 
 When the proxy is enabled:
-- **HVAC modes**: OFF / HEAT (ON/OFF command register not yet captured — placeholder)
-- **Target temperature**: 10-40°C, 0.5°C step
-- **Preset modes**: Power 1-7 (power write command not yet captured — placeholder)
+- **HVAC modes**: OFF / HEAT (sends ON/OFF command to the module)
+- **Target temperature**: 10-40°C, 0.1°C step
+- **Preset modes**: Power 1-7
 - **HVAC action**: OFF, Preheating (ignition), Heating (run/modulation), Idle (extinguishing/standby)
 
-Temperature changes are queued and delivered to the stove via the proxy within ~60 seconds (module polling interval).
+All write commands are queued and delivered to the stove via the proxy within ~60 seconds (module polling interval).
 
 ## Diagnostic Sensors
 

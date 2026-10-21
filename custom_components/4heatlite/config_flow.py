@@ -203,11 +203,7 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         if user_input is not None:
             self._proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
-            if self._proxy_mode == PROXY_MODE_LOCAL:
-                return await self.async_step_schedule()
-            return self.async_create_entry(
-                data={CONF_PROXY_MODE: self._proxy_mode}
-            )
+            return await self.async_step_schedule()
 
         proxy_mode = self.config_entry.options.get(
             CONF_PROXY_MODE, PROXY_MODE_LOCAL
