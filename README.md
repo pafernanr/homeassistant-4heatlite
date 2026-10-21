@@ -17,18 +17,18 @@ Tested with a Lasian Eriste air pellet stove. Should work with any stove using a
 
 ## Features and Modes
 
-All features work via direct TCP connection to the module — no DNS or firewall setup required. Commands (ON/OFF, temperature, power, schedule) are sent instantly over TCP and take effect immediately. The module also polls HA every ~60 seconds for status updates; changes made from the Lasian/4HEAT mobile app may take up to 60 seconds to appear in HA.
+All features work via direct TCP connection to the module — no DNS or firewall setup required. Commands (ON/OFF, temperature, power, schedule) are sent instantly over TCP and take effect immediately. The module also polls HA every ~60 seconds for status updates; changes made from the 4HEAT mobile app may take up to 60 seconds to appear in HA.
 
 | Feature | Direct (default) | Local Only |
 |---------|-----------------|------------|
 | [Sensors](#sensors) (state, temperatures, power, errors) | Yes | Yes |
 | [Write commands](#write-commands) (ON/OFF, target temperature, power level) | Yes | Yes |
 | [Schedule management](#schedule-management) (weekly heating program) | Yes | Yes |
-| Lasian/4HEAT mobile app | Yes | No |
+| 4HEAT mobile app | Yes | No |
 
 ### Direct Mode (default)
 
-The module communicates with both HA (via TCP direct) and the 4HEAT cloud (via its own WiFi connection). No router configuration needed. The Lasian/4HEAT mobile app works normally alongside HA.
+The module communicates with both HA (via TCP direct) and the 4HEAT cloud (via its own WiFi connection). No router configuration needed. The 4HEAT mobile app works normally alongside HA.
 
 ### Local Only Mode
 
@@ -36,7 +36,7 @@ Enable the **Local Only** checkbox in setup or options to block the module's clo
 
 In this mode:
 - No data reaches the 4HEAT cloud (security)
-- The Lasian/4HEAT mobile app will **not** work
+- The 4HEAT mobile app will **not** work
 - HA receives real-time sensor push via the proxy's `/store` endpoint (in addition to TCP polling)
 
 ### Sensors
@@ -133,7 +133,7 @@ With manual installation you will not receive update notifications.
 
 ### Device ID
 
-The Device ID is printed on the module's label. You can also find it in the Lasian/4HEAT mobile app (device info section).
+The Device ID is printed on the module's label. You can also find it in the 4HEAT mobile app (device info section).
 
 ### Options
 

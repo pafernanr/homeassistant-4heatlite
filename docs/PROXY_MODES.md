@@ -6,7 +6,7 @@ The 4HEAT Lite module's local TCP API is **read-only** — write commands (tempe
 
 ```
                     ┌──────────────┐
-                    │  Lasian App   │ (cloud_sync mode only)
+                    │  4HEAT App   │ (cloud_sync mode only)
                     └──────┬───────┘
                            │
                     ┌──────▼───────┐
@@ -28,13 +28,13 @@ The module connects to what it thinks is `wifi4heat-linux.azurewebsites.net:80` 
 
 - Module traffic is intercepted and handled locally by HA.
 - Commands from HA are queued and delivered to the module when it polls.
-- **No data is forwarded to Azure** — the Lasian/4HEAT mobile app will show the device as offline and will NOT work over mobile data.
+- **No data is forwarded to Azure** — the 4HEAT mobile app will show the device as offline and will NOT work over mobile data.
 - The mobile app still works over WiFi (it connects directly to the module via TCP, bypassing the cloud entirely).
 
 ### `cloud_sync`
 
 - Same local interception as `local_only`, plus all module traffic is **forwarded to Azure** in real-time.
-- Commands from both HA and the Lasian app are merged — the module receives commands from both sources.
+- Commands from both HA and the 4HEAT app are merged — the module receives commands from both sources.
 - The mobile app works both on WiFi and mobile data.
 - Azure shows the device as online (`IsOnline: true`).
 
