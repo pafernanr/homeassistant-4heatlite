@@ -403,9 +403,12 @@ class StoveTimeAlignView(HomeAssistantView):
                     return self.json(result)
 
         import time
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        gmt_offset = int(now.astimezone().utcoffset().total_seconds())
         return self.json({
-            "gmtOffset": 7200,
-            "timestamp": int(time.time()),
+            "gmtOffset": gmt_offset,
+            "timestamp": int(time.time()) + gmt_offset,
         })
 
     @staticmethod
