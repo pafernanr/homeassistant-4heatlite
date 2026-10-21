@@ -20,10 +20,10 @@
   "options": {
     "step": {
       "init": {
-        "description": "Local Only blocks the module's cloud traffic and handles it locally. Requires a DNS override and firewall DNAT rule on your router. The Lasian/4HEAT mobile app will not work in this mode.\n\nEdit the weekly heating schedule below. Leave empty to keep current schedule unchanged.",
+        "description": "Local Only prevents the module from reaching the 4HEAT cloud. To be fully private, set up a [DNS override and firewall DNAT rule](https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/PROXY_MODES.md#network-setup-openwrt) on your router. The Lasian/4HEAT mobile app will not work in this mode.",
         "data": {
-          "local_only": "Local Only",
-          "schedule": "Schedule (YAML)"
+          "local_only": "Local Only (block cloud access)",
+          "schedule": "Weekly Heating Schedule"
         }
       }
     },
