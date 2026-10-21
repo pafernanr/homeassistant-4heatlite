@@ -151,6 +151,21 @@ class FourHeatLiteApi:
         """Build OFF command (spegnimento from FileMap)."""
         return ["2WC", "1", "05050000"]
 
+    @staticmethod
+    def build_disable_schedule_command(schedule: dict | None = None) -> list:
+        """Build H24 command with no active slots (minute 0 = OFF)."""
+        if schedule:
+            eco = int(round(schedule.get("eco", 18) * TEMP_SCALE))
+            comfort = int(round(schedule.get("comfort", 22) * TEMP_SCALE))
+            comfort2 = int(round(schedule.get("comfort2", 24) * TEMP_SCALE))
+        else:
+            eco, comfort, comfort2 = 180, 220, 240
+        return [
+            "H24", "6", "#13", "0",
+            str(eco), str(comfort), str(comfort2),
+            "0", "0",
+        ]
+
     def query_schedule(self) -> dict | None:
         """Query the module's weekly schedule via CCG/H24 protocol."""
         try:

@@ -11,8 +11,10 @@ from homeassistant.helpers.selector import ObjectSelector
 
 from .api import FourHeatLiteApi
 from .const import (
+    CONF_CACHED_SCHEDULE,
     CONF_DEVICE_ID,
     CONF_PROXY_MODE,
+    CONF_SCHEDULE_ENABLED,
     DATA_COORDINATOR,
     DOMAIN,
     PROXY_MODE_DIRECT,
@@ -93,18 +95,20 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             local_only = user_input.get("local_only", False)
             proxy_mode = PROXY_MODE_LOCAL if local_only else PROXY_MODE_DIRECT
-
+            schedule_enabled = user_input.get("schedule_enabled", True)
             schedule_data = user_input.get("schedule")
-            if schedule_data:
+
+            entry_data = self.hass.data.get(DOMAIN, {}).get(
+                self.config_entry.entry_id, {}
+            )
+            coordinator = entry_data.get(DATA_COORDINATOR)
+
+            if schedule_enabled and schedule_data:
                 error = FourHeatLiteApi.validate_schedule(schedule_data)
                 if error:
                     errors["schedule"] = error
                 else:
                     cmd = FourHeatLiteApi.build_schedule_command(schedule_data)
-                    entry_data = self.hass.data.get(DOMAIN, {}).get(
-                        self.config_entry.entry_id, {}
-                    )
-                    coordinator = entry_data.get(DATA_COORDINATOR)
                     if coordinator:
                         result = await self.hass.async_add_executor_job(
                             coordinator.api.send_command, cmd
@@ -113,14 +117,35 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                             errors["schedule"] = "schedule_send_failed"
                     else:
                         errors["schedule"] = "schedule_send_failed"
+            elif not schedule_enabled:
+                cmd = FourHeatLiteApi.build_disable_schedule_command(schedule_data)
+                if coordinator:
+                    result = await self.hass.async_add_executor_job(
+                        coordinator.api.send_command, cmd
+                    )
+                    if result is None:
+                        errors["schedule"] = "schedule_send_failed"
+                else:
+                    errors["schedule"] = "schedule_send_failed"
 
             if not errors:
-                return self.async_create_entry(
-                    data={CONF_PROXY_MODE: proxy_mode}
-                )
+                options = {
+                    CONF_PROXY_MODE: proxy_mode,
+                    CONF_SCHEDULE_ENABLED: schedule_enabled,
+                }
+                if schedule_data:
+                    options[CONF_CACHED_SCHEDULE] = schedule_data
+                else:
+                    cached = self.config_entry.options.get(CONF_CACHED_SCHEDULE)
+                    if cached:
+                        options[CONF_CACHED_SCHEDULE] = cached
+                return self.async_create_entry(data=options)
 
         current_mode = self.config_entry.options.get(
             CONF_PROXY_MODE, PROXY_MODE_DIRECT
+        )
+        current_enabled = self.config_entry.options.get(
+            CONF_SCHEDULE_ENABLED, True
         )
         current_schedule = await self._get_current_schedule()
 
@@ -132,6 +157,10 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                         "local_only",
                         default=(current_mode == PROXY_MODE_LOCAL),
                     ): bool,
+                    vol.Optional(
+                        "schedule_enabled",
+                        default=current_enabled,
+                    ): bool,
                     vol.Optional("schedule", default=current_schedule): ObjectSelector(),
                 }
             ),
@@ -139,7 +168,12 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def _get_current_schedule(self) -> dict | None:
-        """Read current schedule from proxy cache or module TCP."""
+        """Read current schedule from cache, proxy, or module TCP."""
+        if not self.config_entry.options.get(CONF_SCHEDULE_ENABLED, True):
+            cached = self.config_entry.options.get(CONF_CACHED_SCHEDULE)
+            if cached:
+                return cached
+
         domain_data = self.hass.data.get(DOMAIN, {})
         proxy_state = domain_data.get(PROXY_STATE, {})
 

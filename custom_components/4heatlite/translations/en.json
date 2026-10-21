@@ -23,6 +23,7 @@
         "description": "Local Only prevents the module from reaching the 4HEAT cloud. To be fully private, set up a [DNS override and firewall DNAT rule](https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/PROXY_MODES.md#network-setup-openwrt) on your router. The 4HEAT mobile app will not work properly in this mode.",
         "data": {
           "local_only": "Local Only (skip cloud access)",
+          "schedule_enabled": "Schedule Enabled",
           "schedule": "Weekly Heating Schedule"
         }
       }

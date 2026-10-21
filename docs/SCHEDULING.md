@@ -24,17 +24,13 @@ The module calls `GET /api/Devices/timeAlign?deviceKey=<key>` after each command
 
 The proxy computes `gmtOffset` dynamically from the HA server's system timezone, so it adjusts automatically for DST transitions (e.g., CEST 7200 → CET 3600).
 
-## Reading the schedule
+## Schedule protocols
 
-Send a TCP query to the module on port 80:
+The module supports two mutually exclusive schedule protocols. Only one can be active at a time — writing one replaces the other. Both are read via the same query (`["CCG","0"]`); the response format indicates which is active.
 
-```
-["CCG","0"]
-```
+### H24 protocol (24-hour heating program)
 
-The module responds with its current schedule. Depending on the schedule type, the response uses one of two protocols:
-
-### H24 protocol (24-hour / weekly heating program)
+Used by the "Heating" page in the mobile app. Defines temperature bands (ECO, COMFORT, COMFORT2) with minute-precision transitions across the entire week.
 
 ```
 ["H24","<count>","#<register>","<program_index>","<ECO>","<COMFORT>","<COMFORT2>", <minute>,<temp>, <minute>,<temp>, ...]
@@ -42,10 +38,10 @@ The module responds with its current schedule. Depending on the schedule type, t
 
 | Field | Description |
 |-------|-------------|
-| `count` | Number of data elements after the protocol identifier |
+| `count` | Number of data elements after the count field |
 | `#<register>` | Register reference (e.g., `#13`). The `#` prefix indicates new format |
 | `program_index` | Which heating program (0-based) |
-| `ECO` | ECO temperature value (raw, may need dividing by multiplier) |
+| `ECO` | ECO temperature value (raw, divided by 10 for °C) |
 | `COMFORT` | COMFORT temperature value |
 | `COMFORT2` | COMFORT2 temperature value |
 | pairs | `(minute_in_week, temperature)` — transitions through the week |
@@ -79,19 +75,39 @@ Temperature values in the pairs match one of the defined bands (ECO, COMFORT, CO
 
 This defines 4 daily slots (07:30–09:30, 11:30–13:30, 15:30–17:30, 19:30–21:30) at COMFORT temperature, repeated every day.
 
-### CCG protocol (chronothermostat / weekly program)
+### CCS protocol (chronothermostat)
+
+Used by the "Crono" page in the mobile app. Defines 3 time slots per day with enable/disable flags.
 
 ```
-["CCG", ...]
+["CCS","<count>","<period>","<day>","<start1>","<end1>","<check1>","<start2>","<end2>","<check2>","<start3>","<end3>","<check3>", ...]
 ```
 
-Used by the chrono/timer page in the app. The response contains 7 days × 3 time slots, each with start time, end time, and enabled flag. Parsed by the app into per-day schedules (Mon–Sun) plus special modes (weekly/weekend grouping).
+| Field | Description |
+|-------|-------------|
+| `count` | Total element count (period + 7 days × 10 fields) |
+| `period` | Timer mode: `0`=disabled, `1`=per-day, `2`=weekly, `3`=weekday/weekend |
+| `day` | Day number (1–7) |
+| `startN/endN` | Time range in `HH:MM` format |
+| `checkN` | Slot enabled: `0`=off, `1`=on |
 
-The CCG format uses `HH:MM` strings (5 chars) for times and a single-char flag (`0`/`1`) for enabled/disabled, grouped in blocks of 9 values per day (3 slots × 3 fields: start, end, check), with 10-element spacing per day block.
+When `period=0`, the schedule is stored but inactive — the module ignores all time slots. The mobile app uses this to "disable" without erasing slot data.
+
+Read via `["CCG","0"]` — response starts with `"CCS"` or `"CCG"` (same format).
+
+## Reading the schedule
+
+Send a TCP query to the module on port 80:
+
+```
+["CCG","0"]
+```
+
+The module responds with its current schedule. The response protocol (`H24` or `CCS`/`CCG`) indicates which schedule type is active.
 
 ## Writing the schedule
 
-Schedule changes are sent via `POST /api/devices/command` with the same array format:
+Schedule changes are sent via `POST /api/devices/command` (cloud) or directly via TCP (local):
 
 ```json
 {
@@ -100,13 +116,25 @@ Schedule changes are sent via `POST /api/devices/command` with the same array fo
 }
 ```
 
-The command is queued server-side (or in the proxy's command queue) and delivered to the module on its next `GET /api/devices/commands` poll (~60 seconds).
+The command is queued server-side (or in the proxy's command queue) and delivered to the module on its next `GET /api/devices/commands` poll (~60 seconds). For local TCP, the command is sent directly and takes effect immediately.
+
+## Disabling the schedule
+
+The mobile app disables the schedule by sending a CCS command with `period=0`, which overwrites whatever schedule is active (including H24) with a disabled CCS. The app caches the schedule locally and re-sends it to re-enable.
+
+**This integration uses H24 only.** Instead of switching to CCS, disabling sends an H24 command with no active time slots — a single transition at minute 0 with temperature 0 (OFF). The ECO/COMFORT/COMFORT2 temperatures from the current schedule are preserved in the command:
+
+```
+["H24","6","#13","0","<ECO>","<COMFORT>","<COMFORT2>","0","0"]
+```
+
+The schedule data is cached in the HA config entry options and re-sent when re-enabled. The "Schedule Enabled" checkbox in the integration options controls this.
 
 ## Proxy behavior
 
 | Mode | `POST /api/devices/cron` | `timeAlign` |
 |------|--------------------------|-------------|
 | `local_only` | Acknowledge only (schedule data discarded) | Return local fallback with dynamic timezone offset |
-| `cloud_sync` | Forward to Azure, then acknowledge | Forward to Azure; fall back to local if cloud fails |
+| `direct` | Forward to Azure, then acknowledge | Forward to Azure; fall back to local if cloud fails |
 
 The proxy does not currently store or expose the schedule data received via `POST /api/devices/cron`. To read the current schedule, query the module directly via TCP (`["CCG","0"]`).

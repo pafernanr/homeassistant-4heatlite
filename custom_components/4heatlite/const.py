@@ -62,6 +62,8 @@ ERROR_NAMES = {
 # Proxy configuration
 CONF_DEVICE_ID = "device_id"
 CONF_PROXY_MODE = "proxy_mode"
+CONF_SCHEDULE_ENABLED = "schedule_enabled"
+CONF_CACHED_SCHEDULE = "cached_schedule"
 PROXY_MODE_DIRECT = "direct"
 PROXY_MODE_LOCAL = "local_only"
 PROXY_POLL_INTERVAL = 120
