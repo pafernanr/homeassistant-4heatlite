@@ -17,15 +17,60 @@ Tested with a Lasian Eriste air pellet stove. Should work with any stove using a
 
 ## Features
 
+Both modes share these features:
+
 - **Sensors**: State, error, exhaust temperature, room temperature, target temperature, power level, running and error binary sensors. See [Sensors & Entities](docs/SENSORS.md) for the full list, register map, and 2WC protocol details.
 
-- **Climate entity**: Target temperature control, HVAC modes (OFF/HEAT), power presets. Write commands require the cloud API proxy. See [Sensors & Entities](docs/SENSORS.md#climate-entity).
+- **Climate entity**: Target temperature control, HVAC modes (OFF/HEAT), power presets, ON/OFF commands. See [Sensors & Entities](docs/SENSORS.md#climate-entity).
 
-- **Cloud API Proxy**: Intercepts module cloud traffic to enable write commands from HA and bidirectional sync with the Lasian mobile app. Two modes available: `local_only` and `cloud_sync`. See [Proxy Modes](docs/PROXY_MODES.md) for architecture, network setup (HTTP and HTTPS scenarios), and configuration.
+- **Write commands** (ON/OFF, temperature, power level): Sent to the module via the proxy command queue. The module picks them up on its next poll (~60s).
+
+- **Cloud API Proxy**: Both modes intercept module cloud traffic via a local proxy. The module talks to HA instead of the 4HEAT cloud. A DNS override and firewall DNAT rule on your router redirect the module's requests to HA. See [Proxy Modes](docs/PROXY_MODES.md) for architecture and [Network Setup](docs/PROXY_MODES.md#network-setup-openwrt) for router configuration.
 
 - **Proxy Endpoints**: The proxy implements 5 endpoints matching the 4HEAT cloud API. See [Proxy Endpoints](docs/PROXY_ENDPOINTS.md) for request/response formats, values decoding, and device lookup logic.
 
-- **Schedule management**: View and edit the stove's weekly heating schedule (H24 program) directly from HA. Available as a YAML editor in the integration's Options Flow and as custom services (`get_schedule` / `set_schedule`) for automations. See [Scheduling](docs/SCHEDULING.md) for protocol details.
+## Proxy Modes
+
+The integration supports two proxy modes, selected during setup and changeable in Options. They differ in what features are available and whether the module stays connected to the 4HEAT cloud.
+
+### Local Only (`local_only`)
+
+The module's cloud traffic is intercepted and handled locally by HA. No data is forwarded to the 4HEAT cloud. The Lasian/4HEAT mobile app will **not** work while in this mode.
+
+Features exclusive to `local_only`:
+
+- **Schedule management**: View and edit the stove's weekly heating schedule (H24 program) directly from HA. A YAML editor in the integration's Options Flow shows the current schedule and lets you modify it. Also available as custom services (`get_schedule` / `set_schedule`) for automations. See [Scheduling](docs/SCHEDULING.md) for protocol details.
+
+Schedule YAML example:
+
+```yaml
+eco: 18.0
+comfort: 23.0
+comfort2: 24.0
+slots:
+  - days: [mon, tue, wed, thu, fri]
+    start: "07:30"
+    end: "09:30"
+    band: comfort
+  - days: [mon, tue, wed, thu, fri]
+    start: "19:00"
+    end: "22:00"
+    band: comfort
+  - days: [sat, sun]
+    start: "08:00"
+    end: "23:00"
+    band: eco
+```
+
+### Cloud Sync (`cloud_sync`)
+
+The proxy forwards all module traffic to the 4HEAT cloud and relays the responses back. This keeps the Lasian/4HEAT mobile app fully functional while adding HA sensors and controls on top.
+
+Features exclusive to `cloud_sync`:
+
+- **Bidirectional sync**: Changes made in the mobile app are reflected in HA, and vice versa. The Lasian/4HEAT mobile app remains fully functional.
+
+Requires 4HEAT account credentials during setup (used once to retrieve the DeviceKey, **not stored**).
 
 ## Installation
 
@@ -68,16 +113,12 @@ The Device ID is printed on the module's label. You can also find it in the Lasi
 ### Options
 
 After setup, go to the integration's options to change:
-- **Proxy mode**: `local_only` (default) or `cloud_sync` (forwards data to/from Azure so the Lasian app stays in sync)
-- **Weekly schedule** (`local_only` mode only): YAML editor pre-populated with the current stove schedule. Edit time slots (start/end), temperature bands (ECO/COMFORT/COMFORT2), and per-day configuration. Changes are sent to the module on submit.
+- **Proxy mode**: switch between `local_only` and `cloud_sync`
+- **Weekly schedule** (shown in `local_only` mode only): YAML editor pre-populated with the current stove schedule. Edit time slots, temperature bands, and per-day configuration. See the [schedule YAML example](#local-only-local_only) above.
 
 ### Multiple Stoves
 
 To add multiple stoves, run the "Add Integration" flow once per stove — each gets its own config entry with its own module IP. Each module needs its own firewall DNAT rule (`src_ip` = that module's IP). See [Proxy Modes](docs/PROXY_MODES.md#multiple-modules).
-
-### Network Setup
-
-The cloud API proxy requires a DNS override and firewall DNAT rule on your router. Setup differs depending on whether HA uses HTTP or HTTPS — see [Network Setup](docs/PROXY_MODES.md#network-setup-openwrt) for step-by-step instructions for both scenarios.
 
 ## Known Limitations
 
