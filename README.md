@@ -9,9 +9,24 @@ Home Assistant custom integration for pellet stoves equipped with a **4HEAT Lite
 
 This integration works with the **4HEAT Lite** WiFi module (Tiemme). It does NOT work with the older 4HEAT module that uses the SEL/SEC protocol — for that, see [homeassistant-4heat](https://github.com/zaubererty/homeassistant-4heat).
 
-How to tell which module you have:
-- **4HEAT Lite** (this integration): sends `["2WC","1","0310"]` JSON commands over TCP:80
-- **Original 4HEAT**: uses `SEL`/`SEC` text commands over TCP:80
+How to tell which module you have — connect to port 80 and send a test command:
+
+```bash
+# 4HEAT Lite: send a JSON 2WC sensor query
+echo -n '["2WC","1","0310"]' | nc -w 3 <MODULE_IP> 80
+
+# Lite response: JSON array with register data
+# ["2WR","1","031000000012005a00e6..."]
+
+# Original 4HEAT: send a SEL status query
+echo -n 'SEL' | nc -w 3 <MODULE_IP> 80
+
+# Original response: plain text with SEC prefix
+# SEC ...
+```
+
+- **4HEAT Lite** (this integration): responds with `["2WR","1","..."]` JSON
+- **Original 4HEAT**: responds with `SEC` plain text
 
 Tested with a Lasian Eriste air pellet stove. Should work with any stove using a 4HEAT Lite module (Tiemme electronics).
 
