@@ -44,6 +44,14 @@ class FourHeatLiteApi:
             s.close()
         return json.loads(raw)
 
+    def send_command(self, cmd: list) -> list | None:
+        """Send a command via TCP and return the parsed response."""
+        try:
+            return self._send(json.dumps(cmd))
+        except (OSError, ValueError, json.JSONDecodeError):
+            _LOGGER.warning("TCP command failed: %s", cmd)
+            return None
+
     def _query(self, command: str, min_hex_len: int = 4) -> str | None:
         """Send a 2WC query and return hex payload, or None on failure."""
         try:

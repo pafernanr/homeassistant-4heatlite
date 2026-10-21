@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import FourHeatLiteApi
-from .const import COMMAND_QUEUE, DATA_COORDINATOR, DOMAIN
+from .const import DATA_COORDINATOR, DOMAIN
 from .coordinator import FourHeatLiteCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,8 +31,7 @@ async def async_setup_entry(
         DATA_COORDINATOR
     ]
     name = entry.data[CONF_NAME]
-    queue = hass.data[DOMAIN][entry.entry_id].get(COMMAND_QUEUE)
-    async_add_entities([StoveClimate(coordinator, name, queue)])
+    async_add_entities([StoveClimate(coordinator, name)])
 
 
 class StoveClimate(CoordinatorEntity, ClimateEntity):
@@ -49,10 +48,9 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
         | ClimateEntityFeature.TURN_OFF
     )
 
-    def __init__(self, coordinator: FourHeatLiteCoordinator, stove_name: str, queue):
+    def __init__(self, coordinator: FourHeatLiteCoordinator, stove_name: str):
         super().__init__(coordinator)
         self._stove_name = stove_name
-        self._queue = queue
         self._attr_name = f"{stove_name} Climate"
         self._attr_unique_id = f"{stove_name}_climate"
 
@@ -110,15 +108,13 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
         return None
 
     async def _send_command(self, cmd: list, desc: str) -> None:
-        if not self._queue:
-            _LOGGER.info(
-                "%s ignored: cloud API proxy not enabled. "
-                "Enable proxy in integration config and set up DNS redirect.",
-                desc,
-            )
-            return
-        await self._queue.put(cmd)
-        _LOGGER.debug("Queued %s command", desc)
+        result = await self.hass.async_add_executor_job(
+            self.coordinator.api.send_command, cmd
+        )
+        if result is None:
+            _LOGGER.warning("TCP command failed: %s", desc)
+        else:
+            _LOGGER.debug("Sent %s command via TCP", desc)
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         if hvac_mode == HVACMode.HEAT:

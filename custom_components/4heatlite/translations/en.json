@@ -3,12 +3,12 @@
     "step": {
       "user": {
         "title": "4HEAT Lite Stove",
-        "description": "Enter the details from your 4HEAT WiFi module label.\n\nCloud sync requires a DNS override and firewall DNAT rule on your router. See [Cloud API Proxy](https://github.com/pafernanr/homeassistant-4heatlite#cloud-api-proxy) for setup instructions.",
+        "description": "Enter the details from your 4HEAT WiFi module label.",
         "data": {
           "device_id": "Device ID (printed on module label)",
           "name": "Stove name",
           "host": "Host (IP address of 4HEAT module)",
-          "proxy_mode": "Proxy mode"
+          "local_only": "Local Only (block cloud access, requires DNS/firewall)"
         }
       }
     },
@@ -20,9 +20,9 @@
   "options": {
     "step": {
       "init": {
-        "description": "Cloud sync requires a DNS override and firewall DNAT rule on your router. See [Cloud API Proxy](https://github.com/pafernanr/homeassistant-4heatlite#cloud-api-proxy) for setup instructions.",
+        "description": "Local Only blocks the module's cloud traffic and handles it locally. Requires a DNS override and firewall DNAT rule on your router. The Lasian/4HEAT mobile app will not work in this mode.",
         "data": {
-          "proxy_mode": "Proxy mode"
+          "local_only": "Local Only"
         }
       },
       "schedule": {

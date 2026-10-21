@@ -1,9 +1,7 @@
 """Config flow for 4HEAT Lite integration."""
 
-import json
 import logging
 
-import aiohttp
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -13,82 +11,21 @@ from homeassistant.helpers.selector import ObjectSelector
 
 from .api import FourHeatLiteApi
 from .const import (
-    COMMAND_QUEUE,
     CONF_DEVICE_ID,
-    CONF_DEVICE_KEY,
     CONF_PROXY_MODE,
     DATA_COORDINATOR,
     DOMAIN,
-    PROXY_MODE_CLOUD,
+    PROXY_MODE_DIRECT,
     PROXY_MODE_LOCAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-CLOUD_TOKEN_URL = "https://wifi4heat.azurewebsites.net/Token"
-CLOUD_DETAILS_URL = "https://wifi4heat.azurewebsites.net/api/Devices/Details"
-
-
-async def _fetch_device_key(email, password, device_id):
-    """Authenticate with 4HEAT cloud and fetch DeviceKey for a device."""
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                CLOUD_TOKEN_URL,
-                data={
-                    "grant_type": "password",
-                    "username": email,
-                    "password": password,
-                },
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                if resp.status != 200:
-                    return None, "invalid_credentials"
-                token_data = await resp.json()
-                token = token_data.get("access_token")
-                if not token:
-                    return None, "invalid_credentials"
-
-            async with session.get(
-                f"{CLOUD_DETAILS_URL}?id={device_id}",
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                if resp.status == 404:
-                    return None, "device_not_found"
-                if resp.status != 200:
-                    return None, "cloud_error"
-                details = await resp.json()
-
-    except aiohttp.ClientError:
-        return None, "cloud_error"
-    except Exception:
-        _LOGGER.exception("Unexpected error fetching device key")
-        return None, "cloud_error"
-
-    last_msg = details.get("LastMessageReceived")
-    if not last_msg:
-        return None, "no_device_key"
-
-    try:
-        msg_data = json.loads(last_msg)
-        device_key = msg_data.get("DeviceKey")
-    except (json.JSONDecodeError, TypeError):
-        return None, "no_device_key"
-
-    if not device_key:
-        return None, "no_device_key"
-
-    return device_key, None
-
 
 class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for 4HEAT Lite."""
 
-    VERSION = 1
-
-    def __init__(self):
-        self._user_input = {}
+    VERSION = 2
 
     async def async_step_user(self, user_input=None):
         errors = {}
@@ -114,11 +51,8 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors[CONF_HOST] = "cannot_connect"
 
             if not errors:
-                proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
-                if proxy_mode == PROXY_MODE_CLOUD:
-                    self._user_input = user_input
-                    return await self.async_step_cloud()
-
+                local_only = user_input.get("local_only", False)
+                proxy_mode = PROXY_MODE_LOCAL if local_only else PROXY_MODE_DIRECT
                 return self.async_create_entry(
                     title=user_input[CONF_NAME],
                     data={
@@ -136,51 +70,7 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_DEVICE_ID): str,
                     vol.Required(CONF_NAME, default="Pellet Stove"): str,
                     vol.Required(CONF_HOST): str,
-                    vol.Optional(
-                        CONF_PROXY_MODE, default=PROXY_MODE_LOCAL
-                    ): vol.In(
-                        {
-                            PROXY_MODE_LOCAL: "Local only (Sensors only, Controls unavailable)",
-                            PROXY_MODE_CLOUD: "Cloud sync (Sync Controls from/to the Cloud)",
-                        }
-                    ),
-                }
-            ),
-            errors=errors,
-        )
-
-    async def async_step_cloud(self, user_input=None):
-        errors = {}
-
-        if user_input is not None:
-            email = user_input["cloud_email"].strip()
-            password = user_input["cloud_password"]
-            device_id = self._user_input[CONF_DEVICE_ID].strip()
-
-            device_key, error = await _fetch_device_key(
-                email, password, device_id
-            )
-
-            if error:
-                errors["base"] = error
-            else:
-                return self.async_create_entry(
-                    title=self._user_input[CONF_NAME],
-                    data={
-                        CONF_DEVICE_ID: device_id,
-                        CONF_NAME: self._user_input[CONF_NAME],
-                        CONF_HOST: self._user_input[CONF_HOST].strip(),
-                        CONF_DEVICE_KEY: device_key,
-                    },
-                    options={CONF_PROXY_MODE: PROXY_MODE_CLOUD},
-                )
-
-        return self.async_show_form(
-            step_id="cloud",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("cloud_email"): str,
-                    vol.Required("cloud_password"): str,
+                    vol.Optional("local_only", default=False): bool,
                 }
             ),
             errors=errors,
@@ -202,11 +92,12 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            self._proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
+            local_only = user_input.get("local_only", False)
+            self._proxy_mode = PROXY_MODE_LOCAL if local_only else PROXY_MODE_DIRECT
             return await self.async_step_schedule()
 
-        proxy_mode = self.config_entry.options.get(
-            CONF_PROXY_MODE, PROXY_MODE_LOCAL
+        current_mode = self.config_entry.options.get(
+            CONF_PROXY_MODE, PROXY_MODE_DIRECT
         )
 
         return self.async_show_form(
@@ -214,14 +105,9 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema(
                 {
                     vol.Optional(
-                        CONF_PROXY_MODE,
-                        default=proxy_mode,
-                    ): vol.In(
-                        {
-                            PROXY_MODE_LOCAL: "Local only (Sensors only, Controls unavailable)",
-                            PROXY_MODE_CLOUD: "Cloud sync (Sync Controls from/to the Cloud)",
-                        }
-                    ),
+                        "local_only",
+                        default=(current_mode == PROXY_MODE_LOCAL),
+                    ): bool,
                 }
             ),
         )
@@ -240,9 +126,13 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                     entry_data = self.hass.data.get(DOMAIN, {}).get(
                         self.config_entry.entry_id, {}
                     )
-                    queue = entry_data.get(COMMAND_QUEUE)
-                    if queue:
-                        await queue.put(cmd)
+                    coordinator = entry_data.get(DATA_COORDINATOR)
+                    if coordinator:
+                        result = await self.hass.async_add_executor_job(
+                            coordinator.api.send_command, cmd
+                        )
+                        if result is None:
+                            errors["schedule"] = "schedule_send_failed"
                     else:
                         errors["schedule"] = "schedule_send_failed"
 

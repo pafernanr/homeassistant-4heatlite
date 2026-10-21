@@ -1,9 +1,6 @@
 """The 4HEAT Lite integration."""
 
-import asyncio
 import logging
-
-import aiohttp
 
 import voluptuous as vol
 
@@ -15,14 +12,12 @@ from homeassistant.helpers import config_validation as cv
 
 from .api import FourHeatLiteApi
 from .const import (
-    COMMAND_QUEUE,
     CONF_DEVICE_ID,
-    CONF_DEVICE_KEY,
     CONF_PROXY_MODE,
     DATA_COORDINATOR,
     DOMAIN,
-    PROXY_MODE_CLOUD,
-    PROXY_SESSION,
+    PROXY_MODE_DIRECT,
+    PROXY_MODE_LOCAL,
     SERVICE_GET_SCHEDULE,
     SERVICE_SET_SCHEDULE,
 )
@@ -47,18 +42,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up 4HEAT Lite from a config entry."""
     coordinator = FourHeatLiteCoordinator(hass, entry.data[CONF_HOST])
 
-    proxy_mode = entry.options.get(CONF_PROXY_MODE, "local_only")
+    proxy_mode = entry.options.get(CONF_PROXY_MODE, PROXY_MODE_DIRECT)
     device_id = entry.data.get(CONF_DEVICE_ID, "")
     host = entry.data[CONF_HOST]
 
     hass.data.setdefault(DOMAIN, {})
 
-    command_queue = asyncio.Queue()
-    cloud_session = None
-    if proxy_mode == PROXY_MODE_CLOUD:
-        cloud_session = aiohttp.ClientSession()
-
-    coordinator.set_proxy_mode(True)
+    coordinator.set_proxy_mode(proxy_mode == PROXY_MODE_LOCAL)
 
     proxy_state = hass.data[DOMAIN].get(PROXY_STATE)
     if proxy_state is None:
@@ -66,13 +56,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN][PROXY_STATE] = proxy_state
 
     device_entry = {
-        "queue": command_queue,
         "coordinator": coordinator,
         "proxy_mode": proxy_mode,
-        "cloud_session": cloud_session,
         "host": host,
         "entry_id": entry.entry_id,
-        "device_key": entry.data.get(CONF_DEVICE_KEY),
     }
 
     if device_id:
@@ -96,10 +83,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entry_data = {
         DATA_COORDINATOR: coordinator,
-        COMMAND_QUEUE: command_queue,
     }
-    if cloud_session:
-        entry_data[PROXY_SESSION] = cloud_session
 
     entry_data[DATA_PLATFORMS] = list(PLATFORMS)
 
@@ -180,10 +164,14 @@ def _register_services(hass: HomeAssistant) -> None:
             raise HomeAssistantError(f"Invalid schedule: {error}")
 
         cmd = FourHeatLiteApi.build_schedule_command(schedule)
-        queue = entry_data.get(COMMAND_QUEUE)
-        if not queue:
-            raise HomeAssistantError("Command queue not available")
-        await queue.put(cmd)
+        coordinator = entry_data.get(DATA_COORDINATOR)
+        if not coordinator:
+            raise HomeAssistantError("Coordinator not available")
+        result = await hass.async_add_executor_job(
+            coordinator.api.send_command, cmd
+        )
+        if result is None:
+            raise HomeAssistantError("Failed to send schedule to module")
 
     hass.services.async_register(
         DOMAIN,
@@ -205,6 +193,22 @@ def _register_services(hass: HomeAssistant) -> None:
     )
 
 
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate config entry from v1 to v2."""
+    if entry.version == 1:
+        options = dict(entry.options)
+        old_mode = options.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
+        if old_mode == "cloud_sync":
+            options[CONF_PROXY_MODE] = PROXY_MODE_DIRECT
+        data = dict(entry.data)
+        data.pop("device_key", None)
+        hass.config_entries.async_update_entry(
+            entry, data=data, options=options, version=2
+        )
+        _LOGGER.info("Migrated config entry %s to version 2", entry.entry_id)
+    return True
+
+
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle options update."""
     await hass.config_entries.async_reload(entry.entry_id)
@@ -218,10 +222,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, platforms)
 
     if unload_ok:
-        session = entry_data.get(PROXY_SESSION)
-        if session:
-            await session.close()
-
         proxy_state = hass.data[DOMAIN].get(PROXY_STATE)
         if proxy_state:
             proxy_state["pending"].pop(entry.entry_id, None)
