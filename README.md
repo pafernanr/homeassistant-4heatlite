@@ -25,6 +25,8 @@ Tested with a Lasian Eriste air pellet stove. Should work with any stove using a
 
 - **Proxy Endpoints**: The proxy implements 5 endpoints matching the 4HEAT cloud API. See [Proxy Endpoints](docs/PROXY_ENDPOINTS.md) for request/response formats, values decoding, and device lookup logic.
 
+- **Schedule management**: View and edit the stove's weekly heating schedule (H24 program) directly from HA. Available as a YAML editor in the integration's Options Flow and as custom services (`get_schedule` / `set_schedule`) for automations. See [Scheduling](docs/SCHEDULING.md) for protocol details.
+
 ## Installation
 
 ### HACS (recommended)
@@ -67,6 +69,7 @@ The Device ID is printed on the module's label. You can also find it in the Lasi
 
 After setup, go to the integration's options to change:
 - **Proxy mode**: `local_only` (default) or `cloud_sync` (forwards data to/from Azure so the Lasian app stays in sync)
+- **Weekly schedule**: YAML editor pre-populated with the current stove schedule. Edit time slots (start/end), temperature bands (ECO/COMFORT/COMFORT2), and per-day configuration. Changes are sent to the module on submit.
 
 ### Multiple Stoves
 
@@ -78,7 +81,7 @@ The cloud API proxy requires a DNS override and firewall DNAT rule on your route
 
 ## Known Limitations
 
-- **ON/OFF and power commands not yet captured**: The ON/OFF and power level write registers have not been captured from cloud traffic yet. Temperature changes work via the proxy.
+- **ON/OFF and power commands**: ON/OFF and power level write commands are implemented. Temperature, power, and schedule changes all work via the proxy.
 - **Write latency ~60s**: Commands are delivered when the module polls (every ~60 seconds). Not suitable for safety-critical controls.
 - **Air stoves only** (for now): tested with an air stove. Hydro (water) stoves may expose additional registers (boiler pressure, water temperature) that are not yet mapped.
 
@@ -87,6 +90,7 @@ The cloud API proxy requires a DNS override and firewall DNAT rule on your route
 - [Sensors & Entities](docs/SENSORS.md) — entity list, register map, 2WC protocol, state/error codes
 - [Proxy Modes](docs/PROXY_MODES.md) — architecture, local_only vs cloud_sync, network setup, stunnel
 - [Proxy Endpoints](docs/PROXY_ENDPOINTS.md) — endpoint reference, request/response formats, values decoding
+- [Scheduling](docs/SCHEDULING.md) — H24/CCG schedule protocols, timeAlign clock sync, schedule read/write
 
 ## Related Projects
 
