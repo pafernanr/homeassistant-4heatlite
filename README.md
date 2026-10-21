@@ -69,7 +69,7 @@ The Device ID is printed on the module's label. You can also find it in the Lasi
 
 After setup, go to the integration's options to change:
 - **Proxy mode**: `local_only` (default) or `cloud_sync` (forwards data to/from Azure so the Lasian app stays in sync)
-- **Weekly schedule**: YAML editor pre-populated with the current stove schedule. Edit time slots (start/end), temperature bands (ECO/COMFORT/COMFORT2), and per-day configuration. Changes are sent to the module on submit.
+- **Weekly schedule** (`local_only` mode only): YAML editor pre-populated with the current stove schedule. Edit time slots (start/end), temperature bands (ECO/COMFORT/COMFORT2), and per-day configuration. Changes are sent to the module on submit.
 
 ### Multiple Stoves
 
@@ -81,7 +81,6 @@ The cloud API proxy requires a DNS override and firewall DNAT rule on your route
 
 ## Known Limitations
 
-- **ON/OFF and power commands**: ON/OFF and power level write commands are implemented. Temperature, power, and schedule changes all work via the proxy.
 - **Write latency ~60s**: Commands are delivered when the module polls (every ~60 seconds). Not suitable for safety-critical controls.
 - **Air stoves only** (for now): tested with an air stove. Hydro (water) stoves may expose additional registers (boiler pressure, water temperature) that are not yet mapped.
 
