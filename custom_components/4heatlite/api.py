@@ -47,7 +47,7 @@ class FourHeatLiteApi:
     def send_command(self, cmd: list) -> list | None:
         """Send a command via TCP and return the parsed response."""
         try:
-            return self._send(json.dumps(cmd))
+            return self._send(json.dumps(cmd, separators=(",", ":")))
         except (OSError, ValueError, json.JSONDecodeError):
             _LOGGER.warning("TCP command failed: %s", cmd)
             return None

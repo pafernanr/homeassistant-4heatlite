@@ -115,6 +115,7 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
             _LOGGER.warning("TCP command failed: %s", desc)
         else:
             _LOGGER.debug("Sent %s command via TCP", desc)
+            await self.coordinator.async_request_refresh()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         if hvac_mode == HVACMode.HEAT:
