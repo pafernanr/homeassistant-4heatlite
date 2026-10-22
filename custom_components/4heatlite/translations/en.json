@@ -30,7 +30,6 @@
   "options": {
     "step": {
       "init": {
-        "description": "**Direct**: module talks to Azure cloud normally, HA polls via TCP.\n\n**Local + Cloud Keepalive**: module traffic is intercepted locally, but registration and sensor data are mirrored to Azure so the mobile app still works. Requires [DNS override and firewall DNAT](https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/PROXY_MODES.md#network-setup-openwrt).\n\n**Local Only**: fully offline, no Azure communication. The 4HEAT mobile app will show the device as offline.",
         "data": {
           "proxy_mode": "Proxy Mode",
           "schedules": "Heating Schedules"

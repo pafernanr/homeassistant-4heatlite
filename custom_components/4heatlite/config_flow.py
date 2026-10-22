@@ -121,9 +121,9 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(
                         CONF_PROXY_MODE, default=PROXY_MODE_DIRECT
                     ): vol.In({
-                        PROXY_MODE_DIRECT: "Direct (no proxy)",
-                        PROXY_MODE_KEEPALIVE: "Local + Cloud Keepalive",
-                        PROXY_MODE_LOCAL: "Local Only (fully offline)",
+                        PROXY_MODE_DIRECT: "Direct — module talks to Azure, HA polls via TCP",
+                        PROXY_MODE_KEEPALIVE: "Cloud Keepalive — local control + mirror to Azure so mobile app works (requires DNS/DNAT)",
+                        PROXY_MODE_LOCAL: "Local Only — fully offline, mobile app will not work",
                     }),
                 }
             ),
@@ -300,9 +300,9 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                         CONF_PROXY_MODE,
                         default=current_mode,
                     ): vol.In({
-                        PROXY_MODE_DIRECT: "Direct (no proxy)",
-                        PROXY_MODE_KEEPALIVE: "Local + Cloud Keepalive",
-                        PROXY_MODE_LOCAL: "Local Only (fully offline)",
+                        PROXY_MODE_DIRECT: "Direct — module talks to Azure, HA polls via TCP",
+                        PROXY_MODE_KEEPALIVE: "Cloud Keepalive — local control + mirror to Azure so mobile app works (requires DNS/DNAT)",
+                        PROXY_MODE_LOCAL: "Local Only — fully offline, mobile app will not work",
                     }),
                     vol.Optional(
                         "schedules",
