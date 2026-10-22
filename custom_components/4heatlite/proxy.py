@@ -113,7 +113,8 @@ class StoveRegisterView(HomeAssistantView):
                 _promote_pending(self._state, device_id, remote_ip)
             self._state.setdefault("hosts", {})[remote_ip] = device_id
 
-        return self.json({"Key": ""})
+        device_key = body.get("DeviceKey", "") or device_id
+        return self.json({"Key": device_key})
 
 
 class StoveCommandsView(HomeAssistantView):
