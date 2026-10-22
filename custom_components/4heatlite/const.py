@@ -70,6 +70,9 @@ CONF_CACHED_SCHEDULES = "cached_schedules"
 NUM_SCHEDULE_SLOTS = 3
 PROXY_MODE_DIRECT = "direct"
 PROXY_MODE_LOCAL = "local_only"
+PROXY_MODE_KEEPALIVE = "cloud_keepalive"
+
+AZURE_HTTPS_BASE = "https://wifi4heat.azurewebsites.net"
 PROXY_POLL_INTERVAL = 120
 
 # Schedule constants

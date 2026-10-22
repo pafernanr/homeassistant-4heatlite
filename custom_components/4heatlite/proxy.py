@@ -1,8 +1,14 @@
 """Cloud API proxy for 4HEAT Lite module.
 
-Responds to module cloud endpoints locally. Required for local_only mode
-(DNS/firewall intercepts module traffic). In direct mode, these endpoints
-exist but receive no traffic since the module talks to Azure directly.
+Responds to module cloud endpoints locally. Required for local_only and
+cloud_keepalive modes (DNS/firewall intercepts module traffic). In direct
+mode, these endpoints exist but receive no traffic since the module talks
+to Azure directly.
+
+Proxy modes:
+  direct          — endpoints idle, module talks to Azure
+  local_only      — full local interception, no Azure forwarding
+  cloud_keepalive — local interception + mirror /register and /store to Azure
 """
 
 import json
@@ -10,12 +16,72 @@ import logging
 import time
 from datetime import datetime, timezone
 
+import aiohttp
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from .api import FourHeatLiteApi
+from .const import AZURE_HTTPS_BASE, PROXY_MODE_KEEPALIVE
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def _mirror_to_azure(method: str, path: str, body: dict | None = None,
+                           params: dict | None = None) -> dict | None:
+    """Fire-and-forget HTTP request to Azure HTTPS endpoint.
+
+    Returns the parsed JSON response on success, None on failure.
+    Uses the HTTPS endpoint which is not affected by DNS overrides.
+    """
+    url = f"{AZURE_HTTPS_BASE}{path}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            if method == "POST":
+                async with session.post(url, json=body, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    resp_text = await resp.text()
+                    if resp.status == 200:
+                        _LOGGER.debug(
+                            "Azure mirror POST %s → %d: %s", path, resp.status, resp_text[:200]
+                        )
+                        try:
+                            return json.loads(resp_text)
+                        except (ValueError, TypeError):
+                            return {}
+                    else:
+                        _LOGGER.warning(
+                            "Azure mirror POST %s failed: HTTP %d: %s", path, resp.status, resp_text[:200]
+                        )
+            elif method == "GET":
+                async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    resp_text = await resp.text()
+                    if resp.status == 200:
+                        _LOGGER.debug(
+                            "Azure mirror GET %s → %d: %s", path, resp.status, resp_text[:200]
+                        )
+                        try:
+                            return json.loads(resp_text)
+                        except (ValueError, TypeError):
+                            return {}
+                    else:
+                        _LOGGER.warning(
+                            "Azure mirror GET %s failed: HTTP %d: %s", path, resp.status, resp_text[:200]
+                        )
+    except Exception:
+        _LOGGER.warning("Azure mirror %s %s failed", method, path, exc_info=True)
+    return None
+
+
+def _should_mirror(state) -> bool:
+    """Check if any device is in cloud_keepalive mode."""
+    for entry in state.get("devices", {}).values():
+        if entry.get("proxy_mode") == PROXY_MODE_KEEPALIVE:
+            return True
+    return False
+
+
+def _device_should_mirror(entry) -> bool:
+    """Check if a specific device entry uses cloud_keepalive mode."""
+    return entry.get("proxy_mode") == PROXY_MODE_KEEPALIVE if entry else False
 
 
 def enqueue_command(state, device_id: str, command: list) -> bool:
@@ -95,18 +161,22 @@ class StoveRegisterView(HomeAssistantView):
         try:
             body = await request.json()
         except Exception:
+            _LOGGER.warning("Register: invalid JSON from %s", remote_ip)
             return self.json({"Key": ""})
 
         device_id = body.get("Id", "")
         _LOGGER.info(
-            "Module registered: id=%s ip=%s fw=%s.%s product=%s",
+            "Register from %s: id=%s fw=%s.%s product=%s rssi=%s",
+            remote_ip,
             device_id,
-            body.get("IpAddress", remote_ip),
             body.get("FirmwareVersion", "?"),
             body.get("FirmwareRevision", "?"),
             body.get("ProductCode", "?"),
+            body.get("RSSI", "?"),
         )
+        _LOGGER.debug("Register body: %s", json.dumps(body, separators=(",", ":")))
 
+        entry = None
         if device_id and remote_ip:
             entry, _ = _lookup_device(self._state, device_id=device_id)
             if not entry:
@@ -122,6 +192,15 @@ class StoveRegisterView(HomeAssistantView):
                 "No DeviceKey for device %s — reconfigure the integration",
                 device_id,
             )
+
+        if _device_should_mirror(entry):
+            _LOGGER.info("Register: mirroring to Azure for device %s", device_id)
+            hass = self._state.get("hass")
+            if hass:
+                hass.async_create_task(
+                    _mirror_to_azure("POST", "/api/devices/register", body=body)
+                )
+
         return self.json({"Key": device_key})
 
 
@@ -149,7 +228,7 @@ class StoveCommandsView(HomeAssistantView):
 
         if not entry:
             if req_id:
-                _LOGGER.debug("Unknown device %s from %s", req_id, remote_ip)
+                _LOGGER.debug("Commands: unknown device %s from %s", req_id, remote_ip)
             return self.json([])
 
         if remote_ip:
@@ -164,16 +243,18 @@ class StoveCommandsView(HomeAssistantView):
             if remove == "true":
                 entry["command_queue"] = []
             _LOGGER.info(
-                "Delivering %d queued command(s) to device %s (remove=%s)",
+                "Commands: delivering %d command(s) to %s (remove=%s)",
                 len(commands),
                 device_id,
                 remove,
             )
+            _LOGGER.debug("Commands payload: %s", json.dumps(commands, separators=(",", ":")))
             return web.Response(
                 body=json.dumps(commands, separators=(",", ":")),
                 content_type="application/json",
             )
 
+        _LOGGER.debug("Commands: no pending commands for %s", device_id)
         return self.json([])
 
 
@@ -197,8 +278,15 @@ class StoveStoreView(HomeAssistantView):
         try:
             body = await request.json()
         except Exception:
-            _LOGGER.warning("Invalid JSON in store request")
+            _LOGGER.warning("Store: invalid JSON from %s", remote_ip)
             return self.json(ok_response)
+
+        _LOGGER.debug(
+            "Store from %s (device %s): %s",
+            remote_ip,
+            device_id,
+            json.dumps(body, separators=(",", ":")),
+        )
 
         values = body.get("Values", [])
         if values and entry:
@@ -207,12 +295,20 @@ class StoveStoreView(HomeAssistantView):
                 data = self._parse_values(values)
                 if data:
                     _LOGGER.info(
-                        "Store data from %s (device %s): %s",
+                        "Store: parsed from %s (device %s): %s",
                         remote_ip,
                         device_id,
                         {k: v for k, v in data.items() if k != "raw"},
                     )
                     coordinator.push_data(data)
+
+        if _device_should_mirror(entry):
+            _LOGGER.info("Store: mirroring to Azure for device %s", device_id)
+            hass = self._state.get("hass")
+            if hass:
+                hass.async_create_task(
+                    _mirror_to_azure("POST", "/api/devices/store", body=body)
+                )
 
         return self.json(ok_response)
 
@@ -238,7 +334,7 @@ class StoveStoreView(HomeAssistantView):
                     result["power"] = (vals[5] << 8) | vals[6]
             else:
                 _LOGGER.debug(
-                    "Unrecognized store value: %.10s... (%d chars)",
+                    "Store: unrecognized value prefix: %.10s... (%d chars)",
                     hexdata,
                     len(hexdata),
                 )
@@ -265,17 +361,18 @@ class StoveCronView(HomeAssistantView):
         try:
             body = await request.json()
         except Exception:
-            _LOGGER.warning("Invalid JSON in cron request")
+            _LOGGER.warning("Cron: invalid JSON from %s", remote_ip)
             return self.json(ok_response)
 
-        _LOGGER.debug("Cron data received from device %s", device_id)
+        _LOGGER.debug("Cron from %s (device %s): %s", remote_ip, device_id,
+                       json.dumps(body, separators=(",", ":")) if isinstance(body, dict) else str(body))
 
         command = body.get("Command") if isinstance(body, dict) else body
         if isinstance(command, list) and command and str(command[0]) == "H24":
             parsed = FourHeatLiteApi.parse_h24_response(command)
             if parsed and entry:
                 entry["last_schedule"] = parsed
-                _LOGGER.debug("Schedule stored for device %s", device_id)
+                _LOGGER.info("Cron: schedule stored for device %s", device_id)
 
         return self.json(ok_response)
 
@@ -291,11 +388,17 @@ class StoveTimeAlignView(HomeAssistantView):
         self._state = state
 
     async def get(self, request):
+        device_key = request.query.get("deviceKey", "?")
         now = datetime.now(timezone.utc)
         gmt_offset = int(now.astimezone().utcoffset().total_seconds())
+        timestamp = int(time.time()) + gmt_offset
+        _LOGGER.debug(
+            "TimeAlign: deviceKey=%s gmtOffset=%d timestamp=%d",
+            device_key, gmt_offset, timestamp,
+        )
         return self.json({
             "gmtOffset": gmt_offset,
-            "timestamp": int(time.time()) + gmt_offset,
+            "timestamp": timestamp,
         })
 
 
@@ -326,6 +429,7 @@ class ProxyDiagView(HomeAssistantView):
             for did, entry in devices.items():
                 result[f"dev_{did}"] = {
                     "proxy_mode": entry.get("proxy_mode", "unknown"),
+                    "cloud_mirror": _device_should_mirror(entry),
                 }
 
             return self.json(result)

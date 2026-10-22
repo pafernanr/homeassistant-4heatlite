@@ -22,6 +22,7 @@ from .const import (
     DOMAIN,
     NUM_SCHEDULE_SLOTS,
     PROXY_MODE_DIRECT,
+    PROXY_MODE_KEEPALIVE,
     PROXY_MODE_LOCAL,
     SERVICE_GET_SCHEDULE,
     SERVICE_SET_SCHEDULE,
@@ -54,7 +55,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})
 
-    coordinator.set_proxy_mode(proxy_mode == PROXY_MODE_LOCAL)
+    coordinator.set_proxy_mode(proxy_mode in (PROXY_MODE_LOCAL, PROXY_MODE_KEEPALIVE))
 
     proxy_state = hass.data[DOMAIN].get(PROXY_STATE)
     if proxy_state is None:

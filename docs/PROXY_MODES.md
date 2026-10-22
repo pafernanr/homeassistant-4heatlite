@@ -6,57 +6,64 @@ The 4HEAT Lite module's local TCP API is **read-only** — write commands (tempe
 
 ```
                     ┌──────────────┐
-                    │  4HEAT App   │ (cloud_sync mode only)
+                    │  4HEAT App   │
                     └──────┬───────┘
-                           │
+                           │ HTTPS (wifi4heat.azurewebsites.net)
                     ┌──────▼───────┐
-                    │  Azure Cloud  │ (bypassed in local_only mode)
-                    └──────▲───────┘
-                           │ forwarded (cloud_sync only)
-┌─────────┐  RS485    ┌───┴───────────┐  HTTP     ┌──────────────────────┐
-│  Stove  │◄─────────►│ 4HEAT Module  │◄─────────►│  HA (port 8123)      │
-│         │  Tiemme   │               │ DNAT:80   │  HomeAssistantView   │
-└─────────┘           └───────────────┘           │  proxy endpoints     │
-                                                  └──────────────────────┘
+                    │  Azure Cloud  │◄── mirror (cloud_keepalive only)
+                    └──────────────┘
+                                      ┌──────────────────────┐
+┌─────────┐  RS485    ┌──────────────┐│  HA (port 8123)      │
+│  Stove  │◄─────────►│ 4HEAT Module ├┤  HomeAssistantView   │
+│         │  Tiemme   │              ││  proxy endpoints     │
+└─────────┘           └──────────────┘└──────────────────────┘
+                         HTTP ▲              │
+                         DNAT:80             │ HTTPS mirror
+                              └──────────────┘ (register + store)
 ```
 
 The module connects to what it thinks is `wifi4heat-linux.azurewebsites.net:80` (Azure cloud). A DNS override on the router resolves this hostname to the router's LAN IP, and a firewall DNAT rule redirects the traffic to Home Assistant.
 
 ## Modes
 
-### `local_only` (default)
+### `direct` (default)
+
+- Module traffic goes to Azure directly — no DNS override needed.
+- HA polls the module via TCP on port 80 for sensor data (read-only).
+- Commands from HA are sent to the module via the cloud command queue.
+- The mobile app works normally.
+- **Limitation**: HA depends on the module's TCP server being reachable on the LAN.
+
+### `cloud_keepalive`
+
+- Module traffic is intercepted and handled locally by HA (requires DNS override + DNAT).
+- Commands from HA are queued and delivered to the module when it polls.
+- `/register` and `/store` requests are **mirrored to Azure** via HTTPS, keeping the device online in Azure's records.
+- The mobile app works — Azure reports `IsOnline: true` because it receives the mirrored store keepalives.
+- **Best of both worlds**: local command control + mobile app compatibility.
+
+#### What gets mirrored
+
+| Module Request | Local | Azure Mirror |
+|----------------|-------|-------------|
+| `POST /api/devices/register` | Handle + respond | Yes — keeps Azure device registration current |
+| `POST /api/devices/store` | Parse sensor data | Yes — keeps `IsOnline: true` |
+| `GET /api/devices/commands` | Drain local queue | No — HA controls commands exclusively |
+| `GET /api/Devices/timeAlign` | Local clock sync | No |
+| `POST /api/devices/cron` | Store schedule | No |
+
+The mirror uses the HTTPS endpoint (`wifi4heat.azurewebsites.net`), which is **not affected** by the DNS override (that only applies to the HTTP hostname `wifi4heat-linux.azurewebsites.net`). Mirror requests are fire-and-forget — failures are logged but do not affect local operation.
+
+### `local_only`
 
 - Module traffic is intercepted and handled locally by HA.
 - Commands from HA are queued and delivered to the module when it polls.
-- **No data is forwarded to Azure** — the 4HEAT mobile app will show the device as offline and will NOT work over mobile data.
-- The mobile app still works over WiFi (it connects directly to the module via TCP, bypassing the cloud entirely).
-
-### `cloud_sync`
-
-- Same local interception as `local_only`, plus all module traffic is **forwarded to Azure** in real-time.
-- Commands from both HA and the 4HEAT app are merged — the module receives commands from both sources.
-- The mobile app works both on WiFi and mobile data.
-- Azure shows the device as online (`IsOnline: true`).
-
-#### Cloud Forwarding Details
-
-In `cloud_sync` mode, the proxy forwards traffic to Azure's real IP (`20.105.232.8`) with a `Host: wifi4heat-linux.azurewebsites.net` header, bypassing the DNS hijack for outbound requests.
-
-| Module Request | Proxy Action |
-|----------------|-------------|
-| `POST /api/devices/register` | Forward to Azure, receive real DeviceKey |
-| `GET /api/devices/commands` | Return local queue + fetch and merge Azure commands |
-| `GET /api/Devices/timeAlign` | Forward to Azure for clock sync |
-| `POST /api/devices/store` | Parse sensor data locally, forward to Azure |
-| `POST /api/devices/cron` | Forward to Azure |
-
-#### DeviceKey
-
-The DeviceKey is a fixed UUID assigned by Azure to each module. It is required in `/store` requests — Azure silently ignores stores with an incorrect key (returns 200 OK but does not update).
-
-During setup, the integration authenticates with the 4HEAT cloud using your account credentials (same as the mobile app) and retrieves the DeviceKey from the device details. Credentials are used once and **not stored** — only the DeviceKey is persisted in the config entry.
+- **No data is forwarded to Azure** — the device appears offline in Azure.
+- The mobile app will show "No device found" / "Dispositivo inalcanzable" because Azure reports `IsOnline: false`.
 
 ## Network Setup (OpenWrt)
+
+Required for `local_only` and `cloud_keepalive` modes. Not needed for `direct` mode.
 
 The module connects to `wifi4heat-linux.azurewebsites.net` on port 80 (HTTP). To redirect this traffic to HA, you need a DNS override and a firewall DNAT rule on your router. The DNAT target depends on whether HA listens on HTTP or HTTPS.
 
@@ -152,7 +159,7 @@ curl -v http://<HA_IP>:8123/ 2>&1 | head -15
 
 ## Reverting to Cloud
 
-To restore full cloud connectivity, remove the DNS override and firewall redirect:
+To restore full cloud connectivity, switch to `direct` mode in the integration options and remove the DNS override and firewall redirect:
 
 ```bash
 uci del_list dhcp.@dnsmasq[0].address='/wifi4heat-linux.azurewebsites.net/<ROUTER_IP>'
@@ -166,4 +173,3 @@ uci commit firewall
 ```
 
 The module will reconnect to Azure within ~60 seconds.
-

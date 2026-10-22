@@ -2,27 +2,37 @@
   "config": {
     "step": {
       "user": {
+        "title": "4HEAT Cloud Login",
+        "description": "Authenticate with your 4HEAT account to retrieve the device key.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "device": {
         "title": "4HEAT Lite Stove",
         "description": "Enter the details from your 4HEAT WiFi module label.",
         "data": {
           "device_id": "Device ID (printed on module label)",
           "name": "Stove name",
           "host": "Host (IP address of 4HEAT module)",
-          "local_only": "Local Only (skip cloud access)"
+          "proxy_mode": "Proxy Mode"
         }
       }
     },
     "error": {
+      "auth_failed": "Authentication failed. Check email and password.",
       "cannot_connect": "Cannot connect to module. Verify IP and that stove is powered on.",
-      "already_configured": "This device is already configured."
+      "already_configured": "This device is already configured.",
+      "device_key_failed": "Could not retrieve device key from 4HEAT cloud. Check device ID."
     }
   },
   "options": {
     "step": {
       "init": {
-        "description": "Local Only prevents the module from reaching the 4HEAT cloud. To be fully private, set up a [DNS override and firewall DNAT rule](https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/PROXY_MODES.md#network-setup-openwrt) on your router. The 4HEAT mobile app will not work properly in this mode.",
+        "description": "**Direct**: module talks to Azure cloud normally, HA polls via TCP.\n\n**Local + Cloud Keepalive**: module traffic is intercepted locally, but registration and sensor data are mirrored to Azure so the mobile app still works. Requires [DNS override and firewall DNAT](https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/PROXY_MODES.md#network-setup-openwrt).\n\n**Local Only**: fully offline, no Azure communication. The 4HEAT mobile app will show the device as offline.",
         "data": {
-          "local_only": "Local Only (skip cloud access)",
+          "proxy_mode": "Proxy Mode",
           "schedules": "Heating Schedules"
         }
       }

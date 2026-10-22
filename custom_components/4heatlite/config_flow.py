@@ -22,6 +22,7 @@ from .const import (
     DOMAIN,
     NUM_SCHEDULE_SLOTS,
     PROXY_MODE_DIRECT,
+    PROXY_MODE_KEEPALIVE,
     PROXY_MODE_LOCAL,
 )
 from .proxy import enqueue_command
@@ -96,8 +97,9 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors["base"] = "device_key_failed"
 
             if not errors:
-                local_only = user_input.get("local_only", False)
-                proxy_mode = PROXY_MODE_LOCAL if local_only else PROXY_MODE_DIRECT
+                proxy_mode = user_input.get(
+                    CONF_PROXY_MODE, PROXY_MODE_DIRECT
+                )
                 return self.async_create_entry(
                     title=user_input[CONF_NAME],
                     data={
@@ -116,7 +118,13 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_DEVICE_ID): str,
                     vol.Required(CONF_NAME, default="Pellet Stove"): str,
                     vol.Required(CONF_HOST): str,
-                    vol.Optional("local_only", default=False): bool,
+                    vol.Optional(
+                        CONF_PROXY_MODE, default=PROXY_MODE_DIRECT
+                    ): vol.In({
+                        PROXY_MODE_DIRECT: "Direct (no proxy)",
+                        PROXY_MODE_KEEPALIVE: "Local + Cloud Keepalive",
+                        PROXY_MODE_LOCAL: "Local Only (fully offline)",
+                    }),
                 }
             ),
             errors=errors,
@@ -193,8 +201,7 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         errors = {}
 
         if user_input is not None:
-            local_only = user_input.get("local_only", False)
-            proxy_mode = PROXY_MODE_LOCAL if local_only else PROXY_MODE_DIRECT
+            proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_DIRECT)
             schedules_data = user_input.get("schedules")
 
             if not isinstance(schedules_data, list):
@@ -290,9 +297,13 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema(
                 {
                     vol.Optional(
-                        "local_only",
-                        default=(current_mode == PROXY_MODE_LOCAL),
-                    ): bool,
+                        CONF_PROXY_MODE,
+                        default=current_mode,
+                    ): vol.In({
+                        PROXY_MODE_DIRECT: "Direct (no proxy)",
+                        PROXY_MODE_KEEPALIVE: "Local + Cloud Keepalive",
+                        PROXY_MODE_LOCAL: "Local Only (fully offline)",
+                    }),
                     vol.Optional(
                         "schedules",
                         default=current_schedules,
