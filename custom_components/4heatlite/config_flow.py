@@ -163,7 +163,7 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     if not key:
                         last_msg = result.get("LastMessageReceived", "")
                         if last_msg:
-                                try:
+                            try:
                                 msg = json.loads(last_msg)
                                 key = msg.get("DeviceKey", "")
                             except (ValueError, TypeError):
