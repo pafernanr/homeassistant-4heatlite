@@ -17,10 +17,13 @@ from .const import (
     CONF_CACHED_SCHEDULES,
     CONF_DEVICE_ID,
     CONF_DEVICE_KEY,
-    CONF_PROXY_DEBUG,
+    CONF_PROXY_LOG_LEVEL,
     CONF_PROXY_MODE,
     DATA_COORDINATOR,
     DOMAIN,
+    LOG_LEVEL_DEBUG,
+    LOG_LEVEL_INFO,
+    LOG_LEVEL_WARNING,
     NUM_SCHEDULE_SLOTS,
     PROXY_MODE_DIRECT,
     PROXY_MODE_KEEPALIVE,
@@ -268,15 +271,15 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                             errors["schedules"] = "schedule_send_failed"
 
             if not errors:
-                proxy_debug = user_input.get(CONF_PROXY_DEBUG, False)
+                proxy_log_level = user_input.get(CONF_PROXY_LOG_LEVEL, LOG_LEVEL_WARNING)
                 return self.async_create_entry(data={
                     CONF_PROXY_MODE: proxy_mode,
-                    CONF_PROXY_DEBUG: proxy_debug,
+                    CONF_PROXY_LOG_LEVEL: proxy_log_level,
                     CONF_ACTIVE_SCHEDULE: new_active,
                     CONF_CACHED_SCHEDULES: schedules_data,
                 })
 
-        current_debug = self.config_entry.options.get(CONF_PROXY_DEBUG, False)
+        current_log_level = self.config_entry.options.get(CONF_PROXY_LOG_LEVEL, LOG_LEVEL_WARNING)
         current_mode = self.config_entry.options.get(
             CONF_PROXY_MODE, PROXY_MODE_DIRECT
         )
@@ -309,9 +312,13 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                         PROXY_MODE_LOCAL: "Local Only — all module traffic handled locally, nothing sent to Azure. Mobile app will show the device as offline",
                     }),
                     vol.Optional(
-                        CONF_PROXY_DEBUG,
-                        default=current_debug,
-                    ): bool,
+                        CONF_PROXY_LOG_LEVEL,
+                        default=current_log_level,
+                    ): vol.In({
+                        LOG_LEVEL_WARNING: "Warning — errors and mirror failures only",
+                        LOG_LEVEL_INFO: "Info — proxy events (register, store, commands)",
+                        LOG_LEVEL_DEBUG: "Debug — full request/response bodies and Azure mirror details",
+                    }),
                     vol.Optional(
                         "schedules",
                         default=current_schedules,
