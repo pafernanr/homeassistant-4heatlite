@@ -161,7 +161,7 @@ class FourHeatLiteApi:
         else:
             eco, comfort, comfort2 = 180, 220, 240
         return [
-            "H24", "6", "#13", "0",
+            "H24", "6", "#13", "1",
             str(eco), str(comfort), str(comfort2),
             "0", "0",
         ]
@@ -313,7 +313,7 @@ class FourHeatLiteApi:
 
         count = len(deduped) + 5
         return [
-            "H24", str(count), "#13", "0",
+            "H24", str(count), "#13", "1",
             str(eco_raw), str(comfort_raw), str(comfort2_raw),
             *data,
         ]

@@ -16,6 +16,18 @@ from .api import FourHeatLiteApi
 _LOGGER = logging.getLogger(__name__)
 
 
+def enqueue_command(state, device_id: str, command: list) -> bool:
+    """Add a command to the device's polling queue."""
+    entry, did = _lookup_device(state, device_id=device_id)
+    if not entry:
+        _LOGGER.warning("Cannot enqueue command: device %s not found", device_id)
+        return False
+    queue = entry.setdefault("command_queue", [])
+    queue.append(command)
+    _LOGGER.info("Enqueued command for device %s: %.60s...", did, str(command))
+    return True
+
+
 def _lookup_device(state, device_id=None, remote_ip=None):
     """Find device entry by device_id or remote IP."""
     devices = state.get("devices", {})
@@ -131,6 +143,19 @@ class StoveCommandsView(HomeAssistantView):
 
         if remote_ip:
             self._state.setdefault("hosts", {})[remote_ip] = device_id
+
+        queue = entry.get("command_queue", [])
+        if queue:
+            commands = [
+                {"id": device_id, "comando": cmd} for cmd in queue
+            ]
+            entry["command_queue"] = []
+            _LOGGER.info(
+                "Delivering %d queued command(s) to device %s",
+                len(commands),
+                device_id,
+            )
+            return self.json(commands)
 
         return self.json([])
 
