@@ -166,6 +166,16 @@ def _register_services(hass: HomeAssistant) -> None:
             raise HomeAssistantError(f"Invalid schedule: {error}")
 
         cmd = FourHeatLiteApi.build_schedule_command(schedule)
+        coordinator = entry_data.get(DATA_COORDINATOR)
+
+        tcp_ok = False
+        if coordinator:
+            result = await hass.async_add_executor_job(
+                coordinator.api.send_command, cmd
+            )
+            if result and len(result) >= 3 and str(result[2]) == "OK":
+                tcp_ok = True
+
         proxy_state = hass.data[DOMAIN].get(PROXY_STATE, {})
         device_id = None
         for did, dev in proxy_state.get("devices", {}).items():
@@ -174,14 +184,15 @@ def _register_services(hass: HomeAssistant) -> None:
                 break
 
         if device_id:
-            if not enqueue_command(proxy_state, device_id, cmd):
-                raise HomeAssistantError("Failed to enqueue schedule command")
-            if device_entry:
-                device_entry["last_schedule"] = schedule
-        else:
+            enqueue_command(proxy_state, device_id, cmd)
+
+        if not tcp_ok and not device_id:
             raise HomeAssistantError(
-                "Device not registered in proxy — cannot deliver schedule"
+                "Failed to deliver schedule: no TCP and no proxy queue"
             )
+
+        if device_entry:
+            device_entry["last_schedule"] = schedule
 
     hass.services.async_register(
         DOMAIN,

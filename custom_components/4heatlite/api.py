@@ -161,7 +161,7 @@ class FourHeatLiteApi:
         else:
             eco, comfort, comfort2 = 180, 220, 240
         return [
-            "H24", "6", "#13", "1",
+            "H24", "7", "#13", "1",
             str(eco), str(comfort), str(comfort2),
             "0", "0",
         ]
@@ -311,7 +311,7 @@ class FourHeatLiteApi:
         for minute, temp in deduped:
             data.extend([str(minute), str(temp)])
 
-        count = len(deduped) + 5
+        count = len(deduped) * 2 + 5
         return [
             "H24", str(count), "#13", "1",
             str(eco_raw), str(comfort_raw), str(comfort2_raw),

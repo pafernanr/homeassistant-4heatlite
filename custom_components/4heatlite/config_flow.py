@@ -207,15 +207,11 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                     errors["schedule"] = error
                 else:
                     cmd = FourHeatLiteApi.build_schedule_command(schedule_data)
-                    if not device_id or not enqueue_command(
-                        proxy_state, device_id, cmd
-                    ):
+                    if not self._deliver_command(cmd, device_id, proxy_state):
                         errors["schedule"] = "schedule_send_failed"
             elif not schedule_enabled:
                 cmd = FourHeatLiteApi.build_disable_schedule_command(schedule_data)
-                if not device_id or not enqueue_command(
-                    proxy_state, device_id, cmd
-                ):
+                if not self._deliver_command(cmd, device_id, proxy_state):
                     errors["schedule"] = "schedule_send_failed"
 
             if not errors:
@@ -285,6 +281,22 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
             )
 
         return None
+
+    def _deliver_command(self, cmd, device_id, proxy_state) -> bool:
+        """Send command via TCP and enqueue in proxy. Returns True if either succeeds."""
+        tcp_ok = False
+        entry_data = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id, {})
+        coordinator = entry_data.get(DATA_COORDINATOR)
+        if coordinator:
+            result = coordinator.api.send_command(cmd)
+            if result and len(result) >= 3 and str(result[2]) == "OK":
+                tcp_ok = True
+
+        queued = False
+        if device_id:
+            queued = enqueue_command(proxy_state, device_id, cmd)
+
+        return tcp_ok or queued
 
     def _update_proxy_schedule(self, schedule_data: dict) -> None:
         """Sync proxy cache so the next options read shows the just-sent schedule."""
