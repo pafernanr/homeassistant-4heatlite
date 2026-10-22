@@ -122,9 +122,9 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(
                         CONF_PROXY_MODE, default=PROXY_MODE_DIRECT
                     ): vol.In({
-                        PROXY_MODE_DIRECT: "Direct — module talks to Azure, HA polls via TCP",
-                        PROXY_MODE_KEEPALIVE: "Cloud Keepalive — local control + mirror to Azure so mobile app works (requires DNS/DNAT)",
-                        PROXY_MODE_LOCAL: "Local Only — fully offline, mobile app will not work",
+                        PROXY_MODE_DIRECT: "Direct — no interception, all module traffic goes to Azure. HA reads sensors via TCP",
+                        PROXY_MODE_KEEPALIVE: "Cloud Keepalive — module traffic handled locally, only register and store keepalives are mirrored to Azure so the mobile app sees the device online. Requires DNS/DNAT",
+                        PROXY_MODE_LOCAL: "Local Only — all module traffic handled locally, nothing sent to Azure. Mobile app will show the device as offline",
                     }),
                 }
             ),
@@ -304,9 +304,9 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                         CONF_PROXY_MODE,
                         default=current_mode,
                     ): vol.In({
-                        PROXY_MODE_DIRECT: "Direct — module talks to Azure, HA polls via TCP",
-                        PROXY_MODE_KEEPALIVE: "Cloud Keepalive — local control + mirror to Azure so mobile app works (requires DNS/DNAT)",
-                        PROXY_MODE_LOCAL: "Local Only — fully offline, mobile app will not work",
+                        PROXY_MODE_DIRECT: "Direct — no interception, all module traffic goes to Azure. HA reads sensors via TCP",
+                        PROXY_MODE_KEEPALIVE: "Cloud Keepalive — module traffic handled locally, only register and store keepalives are mirrored to Azure so the mobile app sees the device online. Requires DNS/DNAT",
+                        PROXY_MODE_LOCAL: "Local Only — all module traffic handled locally, nothing sent to Azure. Mobile app will show the device as offline",
                     }),
                     vol.Optional(
                         CONF_PROXY_DEBUG,
