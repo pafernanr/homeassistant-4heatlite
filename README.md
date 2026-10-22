@@ -72,7 +72,7 @@ The Device ID is printed on the module's label. You can also find it in the 4HEA
 
 After setup, go to the integration's options to change:
 - **Local Only**: checkbox to enable/disable cloud blocking
-- **Weekly schedule**: YAML editor pre-populated with the current stove schedule. See the [schedule example](#schedule-management) above.
+- **Heating Schedules**: YAML editor with multiple named schedules. Set `active: true` on one to send it to the stove. See the [schedule example](#schedule-management) below.
 
 ### Multiple Stoves
 
@@ -141,26 +141,40 @@ View and edit the stove's weekly heating schedule (H24 program) directly from HA
 
 See [Scheduling](docs/SCHEDULING.md) for the H24/CCG protocol details.
 
-Schedule YAML example:
+Schedule YAML example (paste into the Heating Schedules editor):
 
 ```yaml
-eco: 18.0
-comfort: 23.0
-comfort2: 24.0
-slots:
-  - days: [mon, tue, wed, thu, fri]
-    start: "07:30"
-    end: "09:30"
-    band: comfort
-  - days: [mon, tue, wed, thu, fri]
-    start: "19:00"
-    end: "22:00"
-    band: comfort
-  - days: [sat, sun]
-    start: "08:00"
-    end: "23:00"
-    band: eco
+- name: autumn
+  active: true
+  comfort: 23.0
+  comfort2: 24.0
+  eco: 18.0
+  slots:
+    - band: comfort
+      days: [mon, tue, wed, thu, fri]
+      start: "07:30"
+      end: "09:30"
+    - band: comfort
+      days: [mon, tue, wed, thu, fri]
+      start: "19:00"
+      end: "22:00"
+    - band: eco
+      days: [sat, sun]
+      start: "08:00"
+      end: "23:00"
+- name: winter
+  active: false
+  comfort: 23.0
+  comfort2: 25.0
+  eco: 19.0
+  slots:
+    - band: comfort2
+      days: [mon, tue, wed, thu, fri, sat, sun]
+      start: "07:00"
+      end: "23:00"
 ```
+
+Only one schedule can have `active: true`. The active schedule is sent to the stove on save. Set all to `active: false` to disable the schedule.
 
 ### Command Delivery Methods
 

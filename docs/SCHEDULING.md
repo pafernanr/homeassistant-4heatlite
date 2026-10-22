@@ -139,15 +139,15 @@ The queue response must use compact JSON (`separators=(",",":")`) to fit within 
 
 The mobile app disables the schedule by sending a CCS command with `period=0`, which overwrites whatever schedule is active (including H24) with a disabled CCS. The app caches the schedule locally and re-sends it to re-enable.
 
-**This integration uses H24 only.** Instead of switching to CCS, disabling sends an H24 command with no active time slots — a single transition at minute 0 with temperature 0 (OFF). The ECO/COMFORT/COMFORT2 temperatures from the current schedule are preserved in the command:
+**This integration uses H24 only.** Instead of switching to CCS, disabling sends an H24 command with two OFF transitions (minimum required). The ECO/COMFORT/COMFORT2 temperatures from the current schedule are preserved in the command:
 
 ```
-["H24","7","#13","1","<ECO>","<COMFORT>","<COMFORT2>","0","0"]
+["H24","9","#13","0","<ECO>","<COMFORT>","<COMFORT2>","0","0","0","0"]
 ```
 
-count = 1 pair × 2 + 5 = **7**.
+count = 2 pairs × 2 + 5 = **9**.
 
-The schedule data is cached in the HA config entry options and re-sent when re-enabled. The "Schedule Enabled" checkbox in the integration options controls this.
+The schedule data is cached in the HA config entry options. Setting `active: true` on a schedule in the options YAML editor sends it to the stove; setting all schedules to `active: false` sends the disable command.
 
 ## Proxy behavior
 
