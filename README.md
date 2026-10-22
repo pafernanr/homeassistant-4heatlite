@@ -32,14 +32,15 @@ Tested with a Lasian Eriste air pellet stove. Should work with any stove using a
 
 ## Features and Modes
 
-All features work via direct TCP connection to the module — no DNS or firewall setup required. Commands (ON/OFF, temperature, power, schedule) are sent instantly over TCP and take effect immediately. The module also polls HA every ~60 seconds for status updates; changes made from the 4HEAT mobile app may take up to 60 seconds to appear in HA.
+All features work via direct TCP connection to the module — no DNS or firewall setup required. Commands (ON/OFF, temperature, power, schedule) are sent instantly over TCP and take effect immediately. Schedules are delivered via dual path: TCP direct (immediate) + proxy command queue (backup, delivered on next module poll ~60s). The 4HEAT mobile app works on the same WiFi in both modes — it discovers the stove via UDP broadcast and communicates directly over TCP.
 
 | Feature | Direct (default) | Local Only |
 |---------|-----------------|------------|
 | [Sensors](#sensors) (state, temperatures, power, errors) | Yes | Yes |
 | [Write commands](#write-commands) (ON/OFF, target temperature, power level) | Yes | Yes |
-| [Schedule management](#schedule-management) (weekly heating program) | Yes | Yes |
-| 4HEAT mobile app | Yes | No |
+| [Schedule management](#schedule-management) (weekly heating program) | Yes (TCP + queue) | Yes (TCP + queue) |
+| 4HEAT mobile app (same WiFi) | Yes | Yes |
+| 4HEAT mobile app (remote/cloud) | Yes | No |
 
 ### Direct Mode (default)
 
@@ -142,9 +143,10 @@ With manual installation you will not receive update notifications.
 
 1. Go to Settings > Devices & Services > Add Integration
 2. Search for "4HEAT Lite Stove"
-3. Enter the Device ID (printed on the module label), a name for your stove, and the module's IP address
-4. Optionally check **Local Only** to block cloud access (requires DNS/firewall setup on your router)
-5. The integration will verify connectivity before completing setup
+3. Enter your 4HEAT account email and password (used once to retrieve the device key from the 4HEAT cloud)
+4. Enter the Device ID (printed on the module label), a name for your stove, and the module's IP address
+5. Optionally check **Local Only** to block cloud access (requires DNS/firewall setup on your router)
+6. The integration will verify connectivity before completing setup
 
 ### Device ID
 
