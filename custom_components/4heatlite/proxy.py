@@ -5,10 +5,12 @@ Responds to module cloud endpoints locally. Required for local_only mode
 exist but receive no traffic since the module talks to Azure directly.
 """
 
+import json
 import logging
 import time
 from datetime import datetime, timezone
 
+from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from .api import FourHeatLiteApi
@@ -158,7 +160,10 @@ class StoveCommandsView(HomeAssistantView):
                 device_id,
                 remove,
             )
-            return self.json(commands)
+            return web.Response(
+                body=json.dumps(commands, separators=(",", ":")),
+                content_type="application/json",
+            )
 
         return self.json([])
 
