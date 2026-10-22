@@ -149,11 +149,14 @@ class StoveCommandsView(HomeAssistantView):
             commands = [
                 {"id": device_id, "comando": cmd} for cmd in queue
             ]
-            entry["command_queue"] = []
+            remove = request.query.get("removefromserver", "").lower()
+            if remove == "true":
+                entry["command_queue"] = []
             _LOGGER.info(
-                "Delivering %d queued command(s) to device %s",
+                "Delivering %d queued command(s) to device %s (remove=%s)",
                 len(commands),
                 device_id,
+                remove,
             )
             return self.json(commands)
 
