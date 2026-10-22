@@ -17,3 +17,8 @@ All write commands (ON/OFF, temperature, power, schedule) now sent via direct TC
 - `cloud_sync` mode removed — no longer needed
 - Two modes: `direct` (default, no setup) and `local_only` (blocks cloud, requires DNS/firewall)
 - Config flow simplified: checkbox instead of dropdown, no cloud credentials step
+
+## HACS default inclusion — [guide](ADD2HACS.md)
+
+- [ ] Submit brand assets (icon/logo) to [home-assistant/brands](https://github.com/home-assistant/brands) under `custom_integrations/4heatlite/`
+- [ ] Submit PR to [hacs/default](https://github.com/hacs/default) adding entry to `integrations.json`
