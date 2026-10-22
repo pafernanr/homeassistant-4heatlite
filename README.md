@@ -72,7 +72,7 @@ See [Sensors & Entities](docs/SENSORS.md) for the full register map, 2WC protoco
 
 ### Write Commands
 
-Sent directly to the module over TCP — instant response, no polling delay.
+Sent via [TCP direct](#tcp-direct) — instant response, no polling delay.
 
 - **ON / OFF**: start or stop the stove
 - **Target temperature**: set room target (10-40°C, 0.1°C step)
@@ -82,7 +82,7 @@ All write commands are available via the [climate entity](docs/SENSORS.md#climat
 
 ### Schedule Management
 
-View and edit the stove's weekly heating schedule (H24 program) directly from HA.
+View and edit the stove's weekly heating schedule (H24 program) directly from HA. Schedules are delivered via [dual delivery](#command-delivery-methods) — TCP direct (immediate) + command queue (backup).
 
 - **Options Flow**: YAML editor pre-populated with the current schedule
 - **Services**: `4heatlite.get_schedule` and `4heatlite.set_schedule` for automations
@@ -110,7 +110,54 @@ slots:
     band: eco
 ```
 
+### Command Delivery Methods
 
+The module accepts commands via two methods. The integration uses both for schedule delivery (TCP primary, queue backup). Simple write commands (ON/OFF, temperature, power) use TCP only.
+
+#### TCP Direct
+
+Raw JSON array sent to the module on port 80. No HTTP framing — just a plain TCP socket. The module parses the JSON, executes the command, and responds on the same connection. **JSON must be compact** (no spaces) — the module rejects spaced JSON with `["ERR","1","1"]`.
+
+```bash
+# Read sensors
+echo -n '["2WC","1","0310"]' | nc -w 3 <MODULE_IP> 80
+
+# Turn ON
+echo -n '["2WC","1","0504000000"]' | nc -w 3 <MODULE_IP> 80
+
+# Turn OFF
+echo -n '["2WC","1","0505000000"]' | nc -w 3 <MODULE_IP> 80
+
+# Set target temperature to 23.0°C (0x00E6 = 230)
+echo -n '["2WC","1","0512005a00e6006401900001000100"]' | nc -w 3 <MODULE_IP> 80
+
+# Read current schedule
+echo -n '["CCG","0"]' | nc -w 3 <MODULE_IP> 80
+
+# Write a schedule (compact JSON, no spaces)
+echo -n '["H24","119","#13","1","180","230","240","0","0","450","230","570","0",...,"9930","0"]' | nc -w 3 <MODULE_IP> 80
+# Response: ["H24","1","OK"]
+```
+
+#### Command Queue (Proxy Endpoint)
+
+In Local Only mode, the module polls `GET /api/devices/commands?id=<device_id>&removefromserver=true` every ~60 seconds. The proxy returns queued commands in compact JSON. This is the same protocol the 4HEAT cloud uses.
+
+```bash
+# Check the queue (without draining it)
+curl -s 'http://<HA_IP>:8123/api/devices/commands?id=<DEVICE_ID>'
+
+# Check the queue (drain it, as the module does)
+curl -s 'http://<HA_IP>:8123/api/devices/commands?id=<DEVICE_ID>&removefromserver=true'
+
+# Response when commands are queued:
+# [{"id":"24018919","comando":["H24","119","#13","1","180","230","240",...]}]
+
+# Response when empty:
+# []
+```
+
+The queue is populated by the integration when delivering schedules. Commands are cleared only when the module polls with `removefromserver=true`.
 
 See [Proxy Modes](docs/PROXY_MODES.md) for architecture and [Proxy Endpoints](docs/PROXY_ENDPOINTS.md) for the endpoint reference.
 
