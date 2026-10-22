@@ -30,6 +30,45 @@ When the proxy is enabled:
 
 All write commands are queued and delivered to the stove via the proxy within ~60 seconds (module polling interval).
 
+## Register Sensors (from store push)
+
+Additional sensors parsed from the module's `POST /api/devices/store` Values array. These update every ~3 minutes when the proxy is active (cloud_keepalive or local_only mode). In direct mode, these sensors are not populated.
+
+| Entity | Data key | Register | Source (filemap) | Notes |
+|--------|----------|----------|-----------------|-------|
+| Remote Room Temperature | `remote_room_temp` | 12/ffe0 | Temp ambiente remota | Shows unavailable when 0 (no probe) |
+| Remote Room Temperature 2 | `remote_room_temp_2` | 12/ffe8 | Temp ambiente remota 2 | Shows unavailable when 0 (no probe) |
+| Airflow | `airflow` | 12/ffed | Flusso aria | Raw value (unit TBD) |
+| Heating Fan Power | `heating_fan_power` | 0e/023f | Potencia calefacción | |
+| Ducted Fan 1 | `ducted_fan_1` | 0e/0266 | Potencia canalizada 1 | Disabled by default |
+| Ducted Fan 2 | `ducted_fan_2` | 0e/027e | Potencia canalizada 2 | Disabled by default |
+| Cleaning Counter | `cleaning_counter` | 12/ffde | CLEANING 4WEB | Diagnostic |
+| Service Counter | `service_counter` | 12/ffdf | SERVICE 4WEB | Diagnostic, disabled by default |
+
+Registers 12/ffff (exhaust temp) and 12/fff7 (room temp) are also parsed but not exposed as entities — they duplicate data already available from the 0310 sensor block via TCP polling.
+
+### Full store register map
+
+| Prefix | Register | Group | Decode | Key |
+|--------|----------|-------|--------|-----|
+| `10` | 0310 main block | compound | `_decode_0310()` — 19 bytes | state, error, on_off, exhaust_temp, room_temp |
+| `12ffff` | Exhaust temp | 12 | bytes 3-4, ×1 | exhaust_temp_store (duplicate) |
+| `12fff7` | Room temp | 12 | bytes 3-4, ×0.1 | room_temp_store (duplicate) |
+| `12ffe0` | Remote room temp | 12 | bytes 3-4, ×0.1 | remote_room_temp |
+| `12ffe8` | Remote room temp 2 | 12 | bytes 3-4, ×0.1 | remote_room_temp_2 |
+| `12ffed` | Airflow | 12 | bytes 3-4, ×1 | airflow |
+| `12ffde` | Cleaning counter | 12 | bytes 3-4, ×1 | cleaning_counter |
+| `12ffdf` | Service counter | 12 | bytes 3-4, ×1 | service_counter |
+| `12005a` | Target temp | 12 | bytes 3-4, ×0.1 | target_temp |
+| `120058` | Unknown | 12 | bytes 3-4, ×1 | reg_120058 |
+| `120059` | Unknown | 12 | bytes 3-4, ×1 | reg_120059 |
+| `0e016c` | Combustion power | 0e | bytes 5-6 | power |
+| `0e023f` | Heating fan power | 0e | bytes 5-6 | heating_fan_power |
+| `0e0266` | Ducted fan 1 | 0e | bytes 5-6 | ducted_fan_1 |
+| `0e027e` | Ducted fan 2 | 0e | bytes 5-6 | ducted_fan_2 |
+| `0e0231` | Unknown | 0e | bytes 5-6 | reg_0e0231 |
+| `0c81` | Module info | 0c | raw hex | module_info |
+
 ## Diagnostic Sensors
 
 Diagnostic sensors for unmapped response bytes are available but disabled by default. Enable them from the entity settings to help identify additional data fields while the stove is running.

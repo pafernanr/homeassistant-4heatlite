@@ -54,6 +54,9 @@ async def async_setup_entry(
     for idx, label in unknown_bytes.items():
         entities.append(RawByteSensor(coordinator, name, idx, label))
 
+    for defn in REGISTER_SENSOR_DEFS:
+        entities.append(RegisterSensor(coordinator, name, defn))
+
     async_add_entities(entities)
 
 
@@ -206,3 +209,109 @@ class RawByteSensor(FourHeatLiteEntity, SensorEntity):
         if raw and self._byte_index < len(raw):
             return raw[self._byte_index]
         return None
+
+
+REGISTER_SENSOR_DEFS = [
+    {
+        "key": "remote_room_temp",
+        "name": "Remote Room Temperature",
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "precision": 1,
+        "zero_means_absent": True,
+    },
+    {
+        "key": "remote_room_temp_2",
+        "name": "Remote Room Temperature 2",
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+        "state_class": SensorStateClass.MEASUREMENT,
+        "precision": 1,
+        "zero_means_absent": True,
+    },
+    {
+        "key": "airflow",
+        "name": "Airflow",
+        "icon": "mdi:fan",
+        "state_class": SensorStateClass.MEASUREMENT,
+    },
+    {
+        "key": "heating_fan_power",
+        "name": "Heating Fan Power",
+        "icon": "mdi:fan",
+        "state_class": SensorStateClass.MEASUREMENT,
+    },
+    {
+        "key": "ducted_fan_1",
+        "name": "Ducted Fan 1",
+        "icon": "mdi:fan",
+        "state_class": SensorStateClass.MEASUREMENT,
+        "enabled_default": False,
+        "zero_means_absent": True,
+    },
+    {
+        "key": "ducted_fan_2",
+        "name": "Ducted Fan 2",
+        "icon": "mdi:fan",
+        "state_class": SensorStateClass.MEASUREMENT,
+        "enabled_default": False,
+        "zero_means_absent": True,
+    },
+    {
+        "key": "cleaning_counter",
+        "name": "Cleaning Counter",
+        "icon": "mdi:broom",
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "entity_category": EntityCategory.DIAGNOSTIC,
+    },
+    {
+        "key": "service_counter",
+        "name": "Service Counter",
+        "icon": "mdi:wrench",
+        "state_class": SensorStateClass.TOTAL_INCREASING,
+        "entity_category": EntityCategory.DIAGNOSTIC,
+        "enabled_default": False,
+    },
+]
+
+
+class RegisterSensor(FourHeatLiteEntity, SensorEntity):
+    """Generic sensor driven by a register definition."""
+
+    def __init__(self, coordinator, stove_name, definition):
+        super().__init__(coordinator, stove_name)
+        self._data_key = definition["key"]
+        self._zero_means_absent = definition.get("zero_means_absent", False)
+        self._attr_name = f"{stove_name} {definition['name']}"
+        self._attr_unique_id = f"{stove_name}_{definition['key']}"
+        if definition.get("device_class"):
+            self._attr_device_class = definition["device_class"]
+        if definition.get("unit"):
+            self._attr_native_unit_of_measurement = definition["unit"]
+        if definition.get("state_class"):
+            self._attr_state_class = definition["state_class"]
+        if definition.get("precision") is not None:
+            self._attr_suggested_display_precision = definition["precision"]
+        if definition.get("icon"):
+            self._attr_icon = definition["icon"]
+        if definition.get("entity_category"):
+            self._attr_entity_category = definition["entity_category"]
+        if not definition.get("enabled_default", True):
+            self._attr_entity_registry_enabled_default = False
+
+    @property
+    def native_value(self):
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.get(self._data_key)
+
+    @property
+    def available(self) -> bool:
+        if not super().available:
+            return False
+        if self._zero_means_absent:
+            val = self.coordinator.data.get(self._data_key) if self.coordinator.data else None
+            if val is not None and val == 0:
+                return False
+        return True

@@ -80,6 +80,25 @@ LOG_LEVEL_INFO = "info"
 LOG_LEVEL_DEBUG = "debug"
 PROXY_POLL_INTERVAL = 120
 
+STORE_REGISTERS = {
+    "12ffff": {"key": "exhaust_temp_store", "group": "12", "scale": 1},
+    "12fff7": {"key": "room_temp_store", "group": "12", "scale": 0.1},
+    "12ffe0": {"key": "remote_room_temp", "group": "12", "scale": 0.1},
+    "12ffe8": {"key": "remote_room_temp_2", "group": "12", "scale": 0.1},
+    "12ffed": {"key": "airflow", "group": "12", "scale": 1},
+    "12ffde": {"key": "cleaning_counter", "group": "12", "scale": 1},
+    "12ffdf": {"key": "service_counter", "group": "12", "scale": 1},
+    "12005a": {"key": "target_temp", "group": "12", "scale": 0.1},
+    "120058": {"key": "reg_120058", "group": "12", "scale": 1},
+    "120059": {"key": "reg_120059", "group": "12", "scale": 1},
+    "0e016c": {"key": "power", "group": "0e"},
+    "0e023f": {"key": "heating_fan_power", "group": "0e"},
+    "0e0266": {"key": "ducted_fan_1", "group": "0e"},
+    "0e027e": {"key": "ducted_fan_2", "group": "0e"},
+    "0e0231": {"key": "reg_0e0231", "group": "0e"},
+    "0c81": {"key": "module_info", "group": "0c"},
+}
+
 # Schedule constants
 QUERY_SCHEDULE = '["CCG","0"]'
 MINUTES_PER_DAY = 1440

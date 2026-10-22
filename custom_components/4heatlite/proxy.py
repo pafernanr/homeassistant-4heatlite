@@ -21,7 +21,7 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from .api import FourHeatLiteApi
-from .const import AZURE_HTTPS_BASE, PROXY_MODE_KEEPALIVE
+from .const import AZURE_HTTPS_BASE, PROXY_MODE_KEEPALIVE, STORE_REGISTERS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -320,19 +320,23 @@ class StoveStoreView(HomeAssistantView):
                 continue
             if hexdata.startswith("10") and len(hexdata) >= 38:
                 result.update(FourHeatLiteApi._decode_0310(hexdata))
-            elif hexdata.startswith("12005a") and len(hexdata) >= 10:
-                vals = [
-                    int(hexdata[i : i + 2], 16) for i in range(0, len(hexdata), 2)
-                ]
-                if len(vals) >= 5:
-                    result["target_temp"] = ((vals[3] << 8) | vals[4]) / 10.0
-            elif hexdata.startswith("0e016c") and len(hexdata) >= 14:
-                vals = [
-                    int(hexdata[i : i + 2], 16) for i in range(0, len(hexdata), 2)
-                ]
-                if len(vals) >= 7:
-                    result["power"] = (vals[5] << 8) | vals[6]
-            else:
+                continue
+            matched = False
+            for prefix, meta in STORE_REGISTERS.items():
+                if not hexdata.startswith(prefix):
+                    continue
+                matched = True
+                vals = [int(hexdata[i:i+2], 16) for i in range(0, len(hexdata), 2)]
+                group = meta["group"]
+                if group == "12" and len(vals) >= 5:
+                    raw = (vals[3] << 8) | vals[4]
+                    result[meta["key"]] = raw * meta.get("scale", 1)
+                elif group == "0e" and len(vals) >= 7:
+                    result[meta["key"]] = (vals[5] << 8) | vals[6]
+                elif group == "0c":
+                    result[meta["key"]] = hexdata
+                break
+            if not matched:
                 _LOGGER.debug(
                     "Store: unrecognized value prefix: %.10s... (%d chars)",
                     hexdata,
