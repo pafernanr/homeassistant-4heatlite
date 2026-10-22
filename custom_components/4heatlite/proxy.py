@@ -10,12 +10,8 @@ import logging
 import time
 from datetime import datetime, timezone
 
-import aiohttp
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
-
-AZURE_IP = "http://20.105.232.8"
-AZURE_HOSTNAME = "wifi4heat-linux.azurewebsites.net"
 
 from .api import FourHeatLiteApi
 
@@ -121,33 +117,12 @@ class StoveRegisterView(HomeAssistantView):
             entry, _ = _lookup_device(self._state, device_id=device_id)
 
         device_key = entry.get("device_key", "") if entry else ""
-        if not device_key and device_id:
-            device_key = await self._fetch_device_key(device_id)
-            if device_key and entry:
-                entry["device_key"] = device_key
-
-        return self.json({"Key": device_key or device_id})
-
-    async def _fetch_device_key(self, device_id):
-        """Fetch DeviceKey from Azure Details endpoint (no auth required)."""
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{AZURE_IP}/api/Devices/Details",
-                    params={"id": device_id},
-                    headers={"Host": AZURE_HOSTNAME},
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as resp:
-                    data = await resp.json()
-                    key = data.get("DeviceKey", "")
-                    if key:
-                        _LOGGER.info(
-                            "Obtained DeviceKey from Azure for %s", device_id
-                        )
-                    return key
-        except Exception as exc:
-            _LOGGER.warning("Azure DeviceKey fetch failed: %s", exc)
-            return ""
+        if not device_key:
+            _LOGGER.warning(
+                "No DeviceKey for device %s — reconfigure the integration",
+                device_id,
+            )
+        return self.json({"Key": device_key})
 
 
 class StoveCommandsView(HomeAssistantView):

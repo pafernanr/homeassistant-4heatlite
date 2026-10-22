@@ -61,6 +61,7 @@ ERROR_NAMES = {
 
 # Proxy configuration
 CONF_DEVICE_ID = "device_id"
+CONF_DEVICE_KEY = "device_key"
 CONF_PROXY_MODE = "proxy_mode"
 CONF_SCHEDULE_ENABLED = "schedule_enabled"
 CONF_CACHED_SCHEDULE = "cached_schedule"

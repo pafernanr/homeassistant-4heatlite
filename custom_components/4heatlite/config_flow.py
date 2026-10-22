@@ -2,6 +2,7 @@
 
 import logging
 
+import aiohttp
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -13,6 +14,7 @@ from .api import FourHeatLiteApi
 from .const import (
     CONF_CACHED_SCHEDULE,
     CONF_DEVICE_ID,
+    CONF_DEVICE_KEY,
     CONF_PROXY_MODE,
     CONF_SCHEDULE_ENABLED,
     DATA_COORDINATOR,
@@ -24,13 +26,46 @@ from .proxy import enqueue_command
 
 _LOGGER = logging.getLogger(__name__)
 
+AZURE_TOKEN_URL = "https://wifi4heat.azurewebsites.net/Token"
+AZURE_DETAILS_URL = "https://wifi4heat.azurewebsites.net/api/devices/Details"
+
 
 class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for 4HEAT Lite."""
 
     VERSION = 2
 
+    def __init__(self):
+        self._token: str | None = None
+
     async def async_step_user(self, user_input=None):
+        """Step 1: authenticate with 4HEAT cloud using email/password."""
+        errors = {}
+
+        if user_input is not None:
+            email = user_input["email"].strip()
+            password = user_input["password"]
+
+            token = await self._async_authenticate(email, password)
+            if token:
+                self._token = token
+                return await self.async_step_device()
+            else:
+                errors["base"] = "auth_failed"
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("email"): str,
+                    vol.Required("password"): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_device(self, user_input=None):
+        """Step 2: enter device details and fetch DeviceKey from Azure."""
         errors = {}
 
         if user_input is not None:
@@ -53,6 +88,12 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if not can_connect:
                     errors[CONF_HOST] = "cannot_connect"
 
+            device_key = ""
+            if not errors:
+                device_key = await self._async_fetch_device_key(device_id)
+                if not device_key:
+                    errors["base"] = "device_key_failed"
+
             if not errors:
                 local_only = user_input.get("local_only", False)
                 proxy_mode = PROXY_MODE_LOCAL if local_only else PROXY_MODE_DIRECT
@@ -62,12 +103,13 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_DEVICE_ID: device_id,
                         CONF_NAME: user_input[CONF_NAME],
                         CONF_HOST: host,
+                        CONF_DEVICE_KEY: device_key,
                     },
                     options={CONF_PROXY_MODE: proxy_mode},
                 )
 
         return self.async_show_form(
-            step_id="user",
+            step_id="device",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_DEVICE_ID): str,
@@ -78,6 +120,54 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
         )
+
+    async def _async_authenticate(self, email: str, password: str) -> str | None:
+        """POST /Token to get an access token."""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    AZURE_TOKEN_URL,
+                    data={
+                        "grant_type": "password",
+                        "username": email,
+                        "password": password,
+                    },
+                ) as resp:
+                    if resp.status != 200:
+                        _LOGGER.warning("4HEAT auth failed: HTTP %s", resp.status)
+                        return None
+                    result = await resp.json(content_type=None)
+                    return result.get("access_token")
+        except Exception:
+            _LOGGER.exception("4HEAT auth request failed")
+            return None
+
+    async def _async_fetch_device_key(self, device_id: str) -> str:
+        """GET /api/devices/Details with Bearer token to retrieve DeviceKey."""
+        if not self._token:
+            return ""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    AZURE_DETAILS_URL,
+                    params={"id": device_id},
+                    headers={"Authorization": f"Bearer {self._token}"},
+                ) as resp:
+                    if resp.status != 200:
+                        _LOGGER.warning(
+                            "4HEAT Details fetch failed: HTTP %s", resp.status
+                        )
+                        return ""
+                    result = await resp.json(content_type=None)
+                    key = result.get("DeviceKey", "")
+                    if key:
+                        _LOGGER.info(
+                            "Fetched DeviceKey for device %s", device_id
+                        )
+                    return key
+        except Exception:
+            _LOGGER.exception("4HEAT Details request failed")
+            return ""
 
     @staticmethod
     def async_get_options_flow(config_entry):

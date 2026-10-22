@@ -61,6 +61,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "proxy_mode": proxy_mode,
         "host": host,
         "entry_id": entry.entry_id,
+        "device_key": entry.data.get("device_key", ""),
     }
 
     if device_id:
@@ -210,7 +211,6 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if old_mode == "cloud_sync":
             options[CONF_PROXY_MODE] = PROXY_MODE_DIRECT
         data = dict(entry.data)
-        data.pop("device_key", None)
         hass.config_entries.async_update_entry(
             entry, data=data, options=options, version=2
         )
