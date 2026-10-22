@@ -17,6 +17,7 @@ from .const import (
     CONF_CACHED_SCHEDULES,
     CONF_DEVICE_ID,
     CONF_DEVICE_KEY,
+    CONF_PROXY_DEBUG,
     CONF_PROXY_MODE,
     DATA_COORDINATOR,
     DOMAIN,
@@ -267,12 +268,15 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                             errors["schedules"] = "schedule_send_failed"
 
             if not errors:
+                proxy_debug = user_input.get(CONF_PROXY_DEBUG, False)
                 return self.async_create_entry(data={
                     CONF_PROXY_MODE: proxy_mode,
+                    CONF_PROXY_DEBUG: proxy_debug,
                     CONF_ACTIVE_SCHEDULE: new_active,
                     CONF_CACHED_SCHEDULES: schedules_data,
                 })
 
+        current_debug = self.config_entry.options.get(CONF_PROXY_DEBUG, False)
         current_mode = self.config_entry.options.get(
             CONF_PROXY_MODE, PROXY_MODE_DIRECT
         )
@@ -304,6 +308,10 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                         PROXY_MODE_KEEPALIVE: "Cloud Keepalive — local control + mirror to Azure so mobile app works (requires DNS/DNAT)",
                         PROXY_MODE_LOCAL: "Local Only — fully offline, mobile app will not work",
                     }),
+                    vol.Optional(
+                        CONF_PROXY_DEBUG,
+                        default=current_debug,
+                    ): bool,
                     vol.Optional(
                         "schedules",
                         default=current_schedules,

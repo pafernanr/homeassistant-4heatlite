@@ -16,6 +16,7 @@ from .const import (
     CONF_CACHED_SCHEDULE,
     CONF_CACHED_SCHEDULES,
     CONF_DEVICE_ID,
+    CONF_PROXY_DEBUG,
     CONF_PROXY_MODE,
     CONF_SCHEDULE_ENABLED,
     DATA_COORDINATOR,
@@ -56,6 +57,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     coordinator.set_proxy_mode(proxy_mode in (PROXY_MODE_LOCAL, PROXY_MODE_KEEPALIVE))
+
+    proxy_debug = entry.options.get(CONF_PROXY_DEBUG, False)
+    proxy_logger = logging.getLogger("custom_components.4heatlite.proxy")
+    proxy_logger.setLevel(logging.DEBUG if proxy_debug else logging.WARNING)
 
     proxy_state = hass.data[DOMAIN].get(PROXY_STATE)
     if proxy_state is None:

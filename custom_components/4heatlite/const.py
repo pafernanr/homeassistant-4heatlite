@@ -73,6 +73,7 @@ PROXY_MODE_LOCAL = "local_only"
 PROXY_MODE_KEEPALIVE = "cloud_keepalive"
 
 AZURE_HTTPS_BASE = "https://wifi4heat.azurewebsites.net"
+CONF_PROXY_DEBUG = "proxy_debug"
 PROXY_POLL_INTERVAL = 120
 
 # Schedule constants

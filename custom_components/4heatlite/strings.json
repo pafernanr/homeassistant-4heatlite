@@ -32,6 +32,7 @@
       "init": {
         "data": {
           "proxy_mode": "Proxy Mode",
+          "proxy_debug": "Debug Logging (proxy requests and Azure mirror)",
           "schedules": "Heating Schedules"
         }
       }
