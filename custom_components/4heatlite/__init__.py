@@ -249,6 +249,25 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         _LOGGER.info("Migrated config entry %s to version 3", entry.entry_id)
 
+    if entry.version == 3:
+        options = dict(entry.options)
+        old_schedules = options.get(CONF_CACHED_SCHEDULES, [None] * 3)
+        old_active = options.get(CONF_ACTIVE_SCHEDULE)
+        new_schedules = []
+        for i, sched in enumerate(old_schedules):
+            if sched is None:
+                sched = {"eco": 18, "comfort": 21, "comfort2": 23, "slots": []}
+            sched = dict(sched)
+            sched["name"] = f"Schedule {i + 1}"
+            sched["active"] = old_active == i
+            new_schedules.append(sched)
+        options[CONF_CACHED_SCHEDULES] = new_schedules
+        options[CONF_ACTIVE_SCHEDULE] = old_active
+        hass.config_entries.async_update_entry(
+            entry, options=options, version=4
+        )
+        _LOGGER.info("Migrated config entry %s to version 4", entry.entry_id)
+
     return True
 
 

@@ -23,14 +23,7 @@
         "description": "Local Only prevents the module from reaching the 4HEAT cloud. To be fully private, set up a [DNS override and firewall DNAT rule](https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/PROXY_MODES.md#network-setup-openwrt) on your router. The 4HEAT mobile app will not work properly in this mode.",
         "data": {
           "local_only": "Local Only (skip cloud access)",
-          "active_schedule": "Active Schedule",
-          "edit_slot": "Edit a Schedule Slot"
-        }
-      },
-      "edit_schedule": {
-        "title": "Edit {slot_name}",
-        "data": {
-          "schedule": "Schedule Data"
+          "schedules": "Heating Schedules"
         }
       }
     },
@@ -40,7 +33,8 @@
       "invalid_time": "Time values must be in HH:MM format with start before end.",
       "invalid_day": "Day names must be: mon, tue, wed, thu, fri, sat, sun.",
       "overlapping_slots": "Time slots overlap on the same day.",
-      "schedule_send_failed": "Failed to send schedule to module."
+      "schedule_send_failed": "Failed to send schedule to module.",
+      "multiple_active": "Only one schedule can be active at a time."
     }
   }
 }
