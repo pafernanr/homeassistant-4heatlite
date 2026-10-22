@@ -1,5 +1,6 @@
 """Config flow for 4HEAT Lite integration."""
 
+import json
 import logging
 
 import aiohttp
@@ -160,6 +161,14 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         return ""
                     result = await resp.json(content_type=None)
                     key = result.get("DeviceKey", "")
+                    if not key:
+                        last_msg = result.get("LastMessageReceived", "")
+                        if last_msg:
+                                try:
+                                msg = json.loads(last_msg)
+                                key = msg.get("DeviceKey", "")
+                            except (ValueError, TypeError):
+                                pass
                     if key:
                         _LOGGER.info(
                             "Fetched DeviceKey for device %s", device_id
