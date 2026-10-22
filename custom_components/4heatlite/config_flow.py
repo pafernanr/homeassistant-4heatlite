@@ -9,17 +9,18 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_NAME
 
-from homeassistant.helpers.selector import ObjectSelector
-
 from .api import FourHeatLiteApi
+from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
+
 from .const import (
-    CONF_CACHED_SCHEDULE,
+    CONF_ACTIVE_SCHEDULE,
+    CONF_CACHED_SCHEDULES,
     CONF_DEVICE_ID,
     CONF_DEVICE_KEY,
     CONF_PROXY_MODE,
-    CONF_SCHEDULE_ENABLED,
     DATA_COORDINATOR,
     DOMAIN,
+    NUM_SCHEDULE_SLOTS,
     PROXY_MODE_DIRECT,
     PROXY_MODE_LOCAL,
 )
@@ -34,7 +35,7 @@ AZURE_DETAILS_URL = "https://wifi4heat.azurewebsites.net/api/devices/Details"
 class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for 4HEAT Lite."""
 
-    VERSION = 2
+    VERSION = 3
 
     _token: str | None = None
 
@@ -185,8 +186,27 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 PROXY_STATE = "proxy_state"
 
 
+SCHEDULE_OPTIONS = [
+    {"value": "none", "label": "Disabled"},
+    {"value": "0", "label": "Schedule 1"},
+    {"value": "1", "label": "Schedule 2"},
+    {"value": "2", "label": "Schedule 3"},
+]
+
+EDIT_OPTIONS = [
+    {"value": "skip", "label": "Don't edit"},
+    {"value": "0", "label": "Edit Schedule 1"},
+    {"value": "1", "label": "Edit Schedule 2"},
+    {"value": "2", "label": "Edit Schedule 3"},
+]
+
+
 class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
     """Handle options for 4HEAT Lite."""
+
+    def __init__(self):
+        self._pending_options: dict | None = None
+        self._edit_slot: int | None = None
 
     async def async_step_init(self, user_input=None):
         errors = {}
@@ -194,49 +214,56 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             local_only = user_input.get("local_only", False)
             proxy_mode = PROXY_MODE_LOCAL if local_only else PROXY_MODE_DIRECT
-            schedule_enabled = user_input.get("schedule_enabled", True)
-            schedule_data = user_input.get("schedule")
+            active_val = user_input.get("active_schedule", "none")
+            edit_val = user_input.get("edit_slot", "skip")
+
+            active_schedule = int(active_val) if active_val != "none" else None
+            old_active = self.config_entry.options.get(CONF_ACTIVE_SCHEDULE)
 
             domain_data = self.hass.data.get(DOMAIN, {})
             proxy_state = domain_data.get(PROXY_STATE, {})
             device_id = self.config_entry.data.get(CONF_DEVICE_ID, "")
+            schedules = list(
+                self.config_entry.options.get(CONF_CACHED_SCHEDULES)
+                or [None] * NUM_SCHEDULE_SLOTS
+            )
 
-            if schedule_enabled and schedule_data:
-                error = FourHeatLiteApi.validate_schedule(schedule_data)
-                if error:
-                    errors["schedule"] = error
-                else:
-                    cmd = FourHeatLiteApi.build_schedule_command(schedule_data)
+            if active_schedule != old_active:
+                if active_schedule is not None and schedules[active_schedule]:
+                    cmd = FourHeatLiteApi.build_schedule_command(
+                        schedules[active_schedule], active_schedule
+                    )
                     if not self._deliver_command(cmd, device_id, proxy_state):
-                        errors["schedule"] = "schedule_send_failed"
-            elif not schedule_enabled:
-                cmd = FourHeatLiteApi.build_disable_schedule_command(schedule_data)
-                if not self._deliver_command(cmd, device_id, proxy_state):
-                    errors["schedule"] = "schedule_send_failed"
+                        errors["base"] = "schedule_send_failed"
+                    else:
+                        self._update_proxy_schedule(schedules[active_schedule])
+                elif active_schedule is None:
+                    prev = old_active if old_active is not None else 0
+                    prev_sched = schedules[prev] if prev < len(schedules) else None
+                    cmd = FourHeatLiteApi.build_disable_schedule_command(
+                        prev_sched, prev
+                    )
+                    if not self._deliver_command(cmd, device_id, proxy_state):
+                        errors["base"] = "schedule_send_failed"
 
             if not errors:
-                if schedule_data:
-                    self._update_proxy_schedule(schedule_data)
-
-                options = {
+                self._pending_options = {
                     CONF_PROXY_MODE: proxy_mode,
-                    CONF_SCHEDULE_ENABLED: schedule_enabled,
+                    CONF_ACTIVE_SCHEDULE: active_schedule,
+                    CONF_CACHED_SCHEDULES: schedules,
                 }
-                if schedule_data:
-                    options[CONF_CACHED_SCHEDULE] = schedule_data
-                else:
-                    cached = self.config_entry.options.get(CONF_CACHED_SCHEDULE)
-                    if cached:
-                        options[CONF_CACHED_SCHEDULE] = cached
-                return self.async_create_entry(data=options)
+
+                if edit_val != "skip":
+                    self._edit_slot = int(edit_val)
+                    return await self.async_step_edit_schedule()
+
+                return self.async_create_entry(data=self._pending_options)
 
         current_mode = self.config_entry.options.get(
             CONF_PROXY_MODE, PROXY_MODE_DIRECT
         )
-        current_enabled = self.config_entry.options.get(
-            CONF_SCHEDULE_ENABLED, True
-        )
-        current_schedule = await self._get_current_schedule()
+        current_active = self.config_entry.options.get(CONF_ACTIVE_SCHEDULE)
+        active_default = str(current_active) if current_active is not None else "none"
 
         return self.async_show_form(
             step_id="init",
@@ -247,43 +274,69 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                         default=(current_mode == PROXY_MODE_LOCAL),
                     ): bool,
                     vol.Optional(
-                        "schedule_enabled",
-                        default=current_enabled,
-                    ): bool,
-                    vol.Optional("schedule", default=current_schedule): ObjectSelector(),
+                        "active_schedule",
+                        default=active_default,
+                    ): SelectSelector(SelectSelectorConfig(
+                        options=SCHEDULE_OPTIONS, mode="dropdown"
+                    )),
+                    vol.Optional(
+                        "edit_slot",
+                        default="skip",
+                    ): SelectSelector(SelectSelectorConfig(
+                        options=EDIT_OPTIONS, mode="dropdown"
+                    )),
                 }
             ),
             errors=errors,
         )
 
-    async def _get_current_schedule(self) -> dict | None:
-        """Read current schedule from cache, proxy, or module TCP."""
-        if not self.config_entry.options.get(CONF_SCHEDULE_ENABLED, True):
-            cached = self.config_entry.options.get(CONF_CACHED_SCHEDULE)
-            if cached:
-                return cached
+    async def async_step_edit_schedule(self, user_input=None):
+        errors = {}
+        slot = self._edit_slot
 
-        domain_data = self.hass.data.get(DOMAIN, {})
-        proxy_state = domain_data.get(PROXY_STATE, {})
+        if user_input is not None:
+            schedule_data = user_input.get("schedule")
 
-        for dev in proxy_state.get("devices", {}).values():
-            if dev.get("entry_id") == self.config_entry.entry_id:
-                cached = dev.get("last_schedule")
-                if cached:
-                    return cached
-                break
+            if schedule_data:
+                error = FourHeatLiteApi.validate_schedule(schedule_data)
+                if error:
+                    errors["schedule"] = error
+                else:
+                    self._pending_options[CONF_CACHED_SCHEDULES][slot] = schedule_data
+                    active = self._pending_options.get(CONF_ACTIVE_SCHEDULE)
+                    if active == slot:
+                        domain_data = self.hass.data.get(DOMAIN, {})
+                        proxy_state = domain_data.get(PROXY_STATE, {})
+                        device_id = self.config_entry.data.get(CONF_DEVICE_ID, "")
+                        cmd = FourHeatLiteApi.build_schedule_command(
+                            schedule_data, slot
+                        )
+                        if not self._deliver_command(cmd, device_id, proxy_state):
+                            errors["schedule"] = "schedule_send_failed"
+                        else:
+                            self._update_proxy_schedule(schedule_data)
 
-        entry_data = domain_data.get(self.config_entry.entry_id, {})
-        coordinator = entry_data.get(DATA_COORDINATOR)
-        if coordinator:
-            return await self.hass.async_add_executor_job(
-                coordinator.api.query_schedule
-            )
+            if not errors:
+                return self.async_create_entry(data=self._pending_options)
 
-        return None
+        from homeassistant.helpers.selector import ObjectSelector
+
+        schedules = self._pending_options.get(CONF_CACHED_SCHEDULES, [None] * NUM_SCHEDULE_SLOTS)
+        current = schedules[slot] if slot < len(schedules) else None
+
+        return self.async_show_form(
+            step_id="edit_schedule",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional("schedule", default=current): ObjectSelector(),
+                }
+            ),
+            errors=errors,
+            description_placeholders={"slot_name": f"Schedule {slot + 1}"},
+        )
 
     def _deliver_command(self, cmd, device_id, proxy_state) -> bool:
-        """Send command via TCP and enqueue in proxy. Returns True if either succeeds."""
+        """Send command via TCP and enqueue in proxy."""
         tcp_ok = False
         entry_data = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id, {})
         coordinator = entry_data.get(DATA_COORDINATOR)
@@ -299,7 +352,7 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         return tcp_ok or queued
 
     def _update_proxy_schedule(self, schedule_data: dict) -> None:
-        """Sync proxy cache so the next options read shows the just-sent schedule."""
+        """Sync proxy cache."""
         domain_data = self.hass.data.get(DOMAIN, {})
         proxy_state = domain_data.get(PROXY_STATE, {})
         for dev in proxy_state.get("devices", {}).values():

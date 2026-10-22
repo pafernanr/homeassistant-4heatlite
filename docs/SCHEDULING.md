@@ -40,7 +40,7 @@ Used by the "Heating" page in the mobile app. Defines temperature bands (ECO, CO
 |-------|-------------|
 | `count` | Total elements after `H24` and `count`: `(pairs × 2) + 5`. The 5 = `#register`, `program_index`, `ECO`, `COMFORT`, `COMFORT2` |
 | `#<register>` | Register reference (e.g., `#13`). The `#` prefix indicates new format |
-| `program_index` | Which heating program. **Must be `1`** — the stove ignores `program_index=0` |
+| `program_index` | Schedule slot (0, 1, or 2). The app stores 3 schedules locally and sends the active slot's index here |
 | `ECO` | ECO temperature value (raw, divided by 10 for °C) |
 | `COMFORT` | COMFORT temperature value |
 | `COMFORT2` | COMFORT2 temperature value |
@@ -82,7 +82,8 @@ count = 57 pairs × 2 + 5 = **119**. This defines 4 daily slots (07:30–09:30, 
 #### Protocol constraints
 
 - **JSON must be compact** — no spaces. Use `separators=(",",":")`. The stove returns `["ERR","1","1"]` on spaced JSON via TCP.
-- **program_index must be 1** — the stove silently ignores schedules with `program_index=0`.
+- **program_index is 0, 1, or 2** — identifies which of the app's 3 schedule slots this belongs to. The stove accepts all three values (and higher). The stove stores one schedule at a time; program_index is metadata the app uses to track which local slot is active.
+- **Minimum 2 transition pairs** — a command with only 1 pair returns `["ERR","1","1"]`.
 - **count must be `pairs*2 + 5`** — an incorrect count causes the stove to truncate the schedule. With count=62 (wrong) for 57 pairs, the stove only stored ~33 events.
 - **Minutes have 2-minute granularity** — the stove rounds odd minutes up (e.g., 19:31 → 19:32).
 

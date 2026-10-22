@@ -25,3 +25,13 @@ set_schedule:
       required: true
       selector:
         object:
+    program_index:
+      name: Program Index
+      description: "Schedule slot (0, 1, or 2). Matches the app's Schedule 1/2/3."
+      required: false
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 2
+          mode: box

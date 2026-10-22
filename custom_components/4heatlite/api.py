@@ -152,8 +152,10 @@ class FourHeatLiteApi:
         return ["2WC", "1", "05050000"]
 
     @staticmethod
-    def build_disable_schedule_command(schedule: dict | None = None) -> list:
-        """Build H24 command with no active slots (minute 0 = OFF)."""
+    def build_disable_schedule_command(
+        schedule: dict | None = None, program_index: int = 0
+    ) -> list:
+        """Build H24 command with no active slots (two OFF transitions)."""
         if schedule:
             eco = int(round(schedule.get("eco", 18) * TEMP_SCALE))
             comfort = int(round(schedule.get("comfort", 22) * TEMP_SCALE))
@@ -161,9 +163,9 @@ class FourHeatLiteApi:
         else:
             eco, comfort, comfort2 = 180, 220, 240
         return [
-            "H24", "7", "#13", "1",
+            "H24", "9", "#13", str(program_index),
             str(eco), str(comfort), str(comfort2),
-            "0", "0",
+            "0", "0", "0", "0",
         ]
 
     def query_schedule(self) -> dict | None:
@@ -185,6 +187,7 @@ class FourHeatLiteApi:
 
         offset = 1 if str(response[2]).startswith("#") else 0
         try:
+            program_index = int(response[2 + offset])
             eco_raw = int(response[3 + offset])
             comfort_raw = int(response[4 + offset])
             comfort2_raw = int(response[5 + offset])
@@ -256,6 +259,7 @@ class FourHeatLiteApi:
         ))
 
         return {
+            "program_index": program_index,
             "eco": eco_raw / TEMP_SCALE,
             "comfort": comfort_raw / TEMP_SCALE,
             "comfort2": comfort2_raw / TEMP_SCALE,
@@ -263,7 +267,7 @@ class FourHeatLiteApi:
         }
 
     @staticmethod
-    def build_schedule_command(schedule: dict) -> list:
+    def build_schedule_command(schedule: dict, program_index: int = 0) -> list:
         """Encode a user-facing schedule dict into an H24 command array."""
         eco_raw = int(round(schedule["eco"] * TEMP_SCALE))
         comfort_raw = int(round(schedule["comfort"] * TEMP_SCALE))
@@ -313,7 +317,7 @@ class FourHeatLiteApi:
 
         count = len(deduped) * 2 + 5
         return [
-            "H24", str(count), "#13", "1",
+            "H24", str(count), "#13", str(program_index),
             str(eco_raw), str(comfort_raw), str(comfort2_raw),
             *data,
         ]

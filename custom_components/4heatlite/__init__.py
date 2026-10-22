@@ -12,10 +12,15 @@ from homeassistant.helpers import config_validation as cv
 
 from .api import FourHeatLiteApi
 from .const import (
+    CONF_ACTIVE_SCHEDULE,
+    CONF_CACHED_SCHEDULE,
+    CONF_CACHED_SCHEDULES,
     CONF_DEVICE_ID,
     CONF_PROXY_MODE,
+    CONF_SCHEDULE_ENABLED,
     DATA_COORDINATOR,
     DOMAIN,
+    NUM_SCHEDULE_SLOTS,
     PROXY_MODE_DIRECT,
     PROXY_MODE_LOCAL,
     SERVICE_GET_SCHEDULE,
@@ -165,7 +170,8 @@ def _register_services(hass: HomeAssistant) -> None:
         if error:
             raise HomeAssistantError(f"Invalid schedule: {error}")
 
-        cmd = FourHeatLiteApi.build_schedule_command(schedule)
+        program_index = call.data.get("program_index", 0)
+        cmd = FourHeatLiteApi.build_schedule_command(schedule, program_index)
         coordinator = entry_data.get(DATA_COORDINATOR)
 
         tcp_ok = False
@@ -210,12 +216,15 @@ def _register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema({
             vol.Optional("config_entry_id"): cv.string,
             vol.Required("schedule"): dict,
+            vol.Optional("program_index", default=0): vol.All(
+                int, vol.Range(min=0, max=NUM_SCHEDULE_SLOTS - 1)
+            ),
         }),
     )
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate config entry from v1 to v2."""
+    """Migrate config entry to current version."""
     if entry.version == 1:
         options = dict(entry.options)
         old_mode = options.get(CONF_PROXY_MODE, PROXY_MODE_LOCAL)
@@ -226,6 +235,20 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, data=data, options=options, version=2
         )
         _LOGGER.info("Migrated config entry %s to version 2", entry.entry_id)
+
+    if entry.version == 2:
+        options = dict(entry.options)
+        old_enabled = options.pop(CONF_SCHEDULE_ENABLED, True)
+        old_schedule = options.pop(CONF_CACHED_SCHEDULE, None)
+        options[CONF_ACTIVE_SCHEDULE] = 0 if old_enabled else None
+        options[CONF_CACHED_SCHEDULES] = [
+            old_schedule, None, None
+        ]
+        hass.config_entries.async_update_entry(
+            entry, options=options, version=3
+        )
+        _LOGGER.info("Migrated config entry %s to version 3", entry.entry_id)
+
     return True
 
 
