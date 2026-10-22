@@ -102,8 +102,6 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
             domain_data = self.hass.data.get(DOMAIN, {})
             proxy_state = domain_data.get(PROXY_STATE, {})
             device_id = self.config_entry.data.get(CONF_DEVICE_ID, "")
-            entry_data = domain_data.get(self.config_entry.entry_id, {})
-            coordinator = entry_data.get(DATA_COORDINATOR)
 
             if schedule_enabled and schedule_data:
                 error = FourHeatLiteApi.validate_schedule(schedule_data)
@@ -111,29 +109,13 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                     errors["schedule"] = error
                 else:
                     cmd = FourHeatLiteApi.build_schedule_command(schedule_data)
-                    if coordinator:
-                        result = await self.hass.async_add_executor_job(
-                            coordinator.api.send_command, cmd
-                        )
-                        if result is None:
-                            errors["schedule"] = "schedule_send_failed"
-                        elif device_id:
-                            enqueue_command(proxy_state, device_id, cmd)
-                    elif not device_id or not enqueue_command(
+                    if not device_id or not enqueue_command(
                         proxy_state, device_id, cmd
                     ):
                         errors["schedule"] = "schedule_send_failed"
             elif not schedule_enabled:
                 cmd = FourHeatLiteApi.build_disable_schedule_command(schedule_data)
-                if coordinator:
-                    result = await self.hass.async_add_executor_job(
-                        coordinator.api.send_command, cmd
-                    )
-                    if result is None:
-                        errors["schedule"] = "schedule_send_failed"
-                    elif device_id:
-                        enqueue_command(proxy_state, device_id, cmd)
-                elif not device_id or not enqueue_command(
+                if not device_id or not enqueue_command(
                     proxy_state, device_id, cmd
                 ):
                     errors["schedule"] = "schedule_send_failed"
