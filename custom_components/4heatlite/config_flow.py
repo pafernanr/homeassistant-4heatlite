@@ -129,6 +129,9 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                     errors["schedule"] = "schedule_send_failed"
 
             if not errors:
+                if schedule_data:
+                    self._update_proxy_schedule(schedule_data)
+
                 options = {
                     CONF_PROXY_MODE: proxy_mode,
                     CONF_SCHEDULE_ENABLED: schedule_enabled,
@@ -192,3 +195,12 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
             )
 
         return None
+
+    def _update_proxy_schedule(self, schedule_data: dict) -> None:
+        """Sync proxy cache so the next options read shows the just-sent schedule."""
+        domain_data = self.hass.data.get(DOMAIN, {})
+        proxy_state = domain_data.get(PROXY_STATE, {})
+        for dev in proxy_state.get("devices", {}).values():
+            if dev.get("entry_id") == self.config_entry.entry_id:
+                dev["last_schedule"] = schedule_data
+                break
