@@ -36,8 +36,7 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 2
 
-    def __init__(self):
-        self._token: str | None = None
+    _token: str | None = None
 
     async def async_step_user(self, user_input=None):
         """Step 1: authenticate with 4HEAT cloud using email/password."""
