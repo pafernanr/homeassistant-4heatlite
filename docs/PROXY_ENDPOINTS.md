@@ -6,13 +6,13 @@ The proxy registers HTTP endpoints on HA's web server (port 8123) using the `Hom
 
 ### Module-facing (proxy-intercepted)
 
-| Endpoint | Method | When | Proxy Mode | Implemented |
+| Endpoint | Method | When | Proxy Mode | Azure Mirror |
 |----------|--------|------|------------|-------------|
-| [`/api/devices/register`](#post-apidevicesregister) | POST | Module boot | Both | Yes |
-| [`/api/devices/commands`](#get-apidevicescommands) | GET | Every ~60s | Both | Yes |
-| [`/api/Devices/timeAlign`](#get-apidevicestimealign) | GET | After each commands poll | Both | Yes |
-| [`/api/devices/store`](#post-apidevicesstore) | POST | On value change + ~15min keepalive | Both | Yes |
-| [`/api/devices/cron`](#post-apidevicescron) | POST | Periodically | Both | Yes |
+| [`/api/devices/register`](#post-apidevicesregister) | POST | Module boot | keepalive + local_only | keepalive only |
+| [`/api/devices/commands`](#get-apidevicescommands) | GET | Every ~60s | keepalive + local_only | No |
+| [`/api/Devices/timeAlign`](#get-apidevicestimealign) | GET | After each commands poll | keepalive + local_only | No |
+| [`/api/devices/store`](#post-apidevicesstore) | POST | On value change + ~15min keepalive | keepalive + local_only | keepalive only |
+| [`/api/devices/cron`](#post-apidevicescron) | POST | Periodically | keepalive + local_only | No |
 
 ### App-facing (cloud API)
 
@@ -80,7 +80,7 @@ Module sends this once on boot before starting the polling cycle.
 {"Key": "<DEVICE_KEY>"}
 ```
 
-`cloud_sync`: forwards to Azure, receives and persists DeviceKey. `local_only`: returns stored DeviceKey from config entry.
+`cloud_keepalive`: forwards to Azure via HTTPS mirror, receives and persists DeviceKey. `local_only`: returns stored DeviceKey from config entry.
 
 ---
 
@@ -105,7 +105,7 @@ Module polls every ~60s for pending commands.
 []
 ```
 
-`cloud_sync`: drains local queue + fetches and merges Azure commands. `local_only`: drains local queue only.
+`cloud_keepalive` / `local_only`: drains local queue only. Commands are controlled exclusively by HA.
 
 ---
 
@@ -123,7 +123,7 @@ Module calls this after every commands poll to sync its internal clock.
 {"gmtOffset": 7200, "timestamp": 1787022616}
 ```
 
-`cloud_sync`: forwards to Azure. `local_only`: returns local system time with configured GMT offset.
+`cloud_keepalive` / `local_only`: returns local system time with configured GMT offset (not mirrored).
 
 > **Critical**: If this endpoint returns 404, the module stops its polling cycle and never sends `/store`.
 
@@ -154,7 +154,7 @@ Module sends sensor data on value changes (within seconds) and periodically as a
 {"DeviceId": "<DEVICE_ID>", "Assistant": ""}
 ```
 
-Proxy parses `Values` to extract sensor data (see [Values Decoding](#values-decoding) below), pushes to coordinator for immediate entity updates. `cloud_sync`: also forwards full body to Azure.
+Proxy parses `Values` to extract sensor data (see [Values Decoding](#values-decoding) below), pushes to coordinator for immediate entity updates. `cloud_keepalive`: also mirrors full body to Azure via HTTPS.
 
 ---
 
@@ -168,7 +168,7 @@ Module sends schedule/timer data periodically.
 {"DeviceId": "<DEVICE_ID>", "Assistant": ""}
 ```
 
-`cloud_sync`: forwards to Azure. `local_only`: acknowledges only.
+`cloud_keepalive` / `local_only`: acknowledges only (cron is not mirrored).
 
 ---
 

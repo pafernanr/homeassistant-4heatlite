@@ -153,7 +153,8 @@ The schedule data is cached in the HA config entry options. Setting `active: tru
 
 | Mode | `POST /api/devices/cron` | `timeAlign` |
 |------|--------------------------|-------------|
-| `local_only` | Acknowledge only (schedule data discarded) | Return local fallback with dynamic timezone offset |
 | `direct` | Forward to Azure, then acknowledge | Forward to Azure; fall back to local if cloud fails |
+| `cloud_keepalive` | Acknowledge only (not mirrored) | Return local fallback with dynamic timezone offset |
+| `local_only` | Acknowledge only (not mirrored) | Return local fallback with dynamic timezone offset |
 
 The proxy parses H24 data from `POST /api/devices/cron` and caches it in `device_entry["last_schedule"]`. This cache is used by the options flow and `get_schedule` service. The schedule can also be read directly from the module via TCP (`["CCG","0"]`).

@@ -61,7 +61,7 @@ With manual installation you will not receive update notifications.
 2. Search for "4HEAT Lite Stove"
 3. Enter your 4HEAT account email and password (used once to retrieve the device key from the 4HEAT cloud)
 4. Enter the Device ID (printed on the module label), a name for your stove, and the module's IP address
-5. Optionally check **Local Only** to block cloud access (requires DNS/firewall setup on your router)
+5. Select a **Proxy Mode** (Direct, Cloud Keepalive, or Local Only — see [Proxy Modes](docs/PROXY_MODES.md))
 6. The integration will verify connectivity before completing setup
 
 ### Device ID
@@ -71,8 +71,10 @@ The Device ID is printed on the module's label. You can also find it in the 4HEA
 ### Options
 
 After setup, go to the integration's options to change:
-- **Local Only**: checkbox to enable/disable cloud blocking
+- **Proxy Mode**: Direct, Cloud Keepalive, or Local Only (see [Proxy Modes](docs/PROXY_MODES.md))
 - **Heating Schedules**: YAML editor with multiple named schedules. Set `active: true` on one to send it to the stove. See the [schedule example](#schedule-management) below.
+
+To enable debug logging, use HA's built-in toggle: go to the integration page, click the three-dot menu, and select "Enable debug logging".
 
 ### Multiple Stoves
 
@@ -84,27 +86,32 @@ To add multiple stoves, run the "Add Integration" flow once per stove — each g
 
 ## Features and Modes
 
-All features work via direct TCP connection to the module — no DNS or firewall setup required. Commands (ON/OFF, temperature, power, schedule) are sent instantly over TCP and take effect immediately. Schedules are delivered via dual path: TCP direct (immediate) + proxy command queue (backup, delivered on next module poll ~60s). The 4HEAT mobile app works on the same WiFi in both modes — it discovers the stove via UDP broadcast and communicates directly over TCP.
+All features work via direct TCP connection to the module. Commands (ON/OFF, temperature, power, schedule) are sent instantly over TCP and take effect immediately. Schedules are delivered via dual path: TCP direct (immediate) + proxy command queue (backup, delivered on next module poll ~60s).
 
-| Feature | Direct (default) | Local Only |
-|---------|-----------------|------------|
-| [Sensors](#sensors) (state, temperatures, power, errors) | Yes | Yes |
-| [Write commands](#write-commands) (ON/OFF, target temperature, power level) | Yes | Yes |
-| [Schedule management](#schedule-management) (weekly heating program) | Yes (TCP + queue) | Yes (TCP + queue) |
-| 4HEAT mobile app (same WiFi) | Yes | Yes |
-| 4HEAT mobile app (remote/cloud) | Yes | No |
+| Feature | Direct (default) | Cloud Keepalive | Local Only |
+|---------|-----------------|-----------------|------------|
+| [Sensors](#sensors) (state, temperatures, power, errors) | Yes | Yes | Yes |
+| [Write commands](#write-commands) (ON/OFF, target temperature, power level) | Yes | Yes | Yes |
+| [Schedule management](#schedule-management) (weekly heating program) | Yes (TCP + queue) | Yes (TCP + queue) | Yes (TCP + queue) |
+| 4HEAT mobile app (same WiFi) | Yes | Yes | Yes |
+| 4HEAT mobile app (remote/cloud) | Yes | Yes | No |
+| Requires DNS/DNAT | No | Yes | Yes |
 
 ### Direct Mode (default)
 
 The module communicates with both HA (via TCP direct) and the 4HEAT cloud (via its own WiFi connection). No router configuration needed. The 4HEAT mobile app works normally alongside HA.
 
+### Cloud Keepalive Mode
+
+Module traffic is intercepted and handled locally by HA (requires [DNS override and firewall DNAT rule](docs/PROXY_MODES.md#network-setup-openwrt)). Only `/register` and `/store` keepalives are mirrored to Azure via HTTPS, so the mobile app sees the device as online. Commands are controlled exclusively by HA. Best of both worlds: local command control + mobile app compatibility.
+
 ### Local Only Mode
 
-Enable the **Local Only** checkbox in setup or options to block the module's cloud access. This requires a [DNS override and firewall DNAT rule](docs/PROXY_MODES.md#network-setup-openwrt) on your router to redirect the module's cloud traffic to HA. The integration runs local proxy endpoints to respond to the module's polls.
+Module traffic is intercepted and handled locally by HA (requires [DNS override and firewall DNAT rule](docs/PROXY_MODES.md#network-setup-openwrt)). Nothing is sent to Azure — the device appears offline in the cloud. The mobile app will show "No device found".
 
 In this mode:
-- No data reaches the 4HEAT cloud (security)
-- The 4HEAT mobile app will **not** work
+- No data reaches the 4HEAT cloud (privacy)
+- The 4HEAT mobile app will **not** work remotely
 - HA receives real-time sensor push via the proxy's `/store` endpoint (in addition to TCP polling)
 
 ### Sensors
@@ -230,7 +237,7 @@ See [Proxy Modes](docs/PROXY_MODES.md) for architecture and [Proxy Endpoints](do
 ## Documentation
 
 - [Sensors & Entities](docs/SENSORS.md) — entity list, register map, 2WC protocol, state/error codes
-- [Proxy Modes](docs/PROXY_MODES.md) — architecture, local_only mode, network setup, stunnel
+- [Proxy Modes](docs/PROXY_MODES.md) — architecture, direct/cloud_keepalive/local_only modes, network setup, stunnel
 - [Proxy Endpoints](docs/PROXY_ENDPOINTS.md) — endpoint reference, request/response formats, values decoding
 - [Scheduling](docs/SCHEDULING.md) — H24/CCG schedule protocols, timeAlign clock sync, schedule read/write
 
