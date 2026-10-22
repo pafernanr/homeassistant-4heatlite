@@ -30,6 +30,58 @@ echo -n 'SEL' | nc -w 3 <MODULE_IP> 80
 
 Tested with a Lasian Eriste air pellet stove. Should work with any stove using a 4HEAT Lite module (Tiemme electronics).
 
+## Installation
+
+### HACS (recommended)
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=pafernanr&repository=homeassistant-4heatlite&category=integration)
+
+Or manually add the custom repository:
+
+1. Open HACS in Home Assistant
+2. Click the three-dot menu (top right) and select **Custom repositories**
+3. Paste `https://github.com/pafernanr/homeassistant-4heatlite` and select **Integration** as category
+4. Click **Add**
+5. Find "4HEAT Lite Stove" in HACS and click **Download**
+6. Restart Home Assistant
+
+HACS will notify you in Home Assistant when a new version is available.
+
+### Manual
+
+1. Download the [latest release](https://github.com/pafernanr/homeassistant-4heatlite/releases/latest)
+2. Copy the `custom_components/4heatlite/` directory to your Home Assistant `config/custom_components/` directory
+3. Restart Home Assistant
+
+With manual installation you will not receive update notifications.
+
+## Configuration
+
+1. Go to Settings > Devices & Services > Add Integration
+2. Search for "4HEAT Lite Stove"
+3. Enter your 4HEAT account email and password (used once to retrieve the device key from the 4HEAT cloud)
+4. Enter the Device ID (printed on the module label), a name for your stove, and the module's IP address
+5. Optionally check **Local Only** to block cloud access (requires DNS/firewall setup on your router)
+6. The integration will verify connectivity before completing setup
+
+### Device ID
+
+The Device ID is printed on the module's label. You can also find it in the 4HEAT mobile app (device info section).
+
+### Options
+
+After setup, go to the integration's options to change:
+- **Local Only**: checkbox to enable/disable cloud blocking
+- **Weekly schedule**: YAML editor pre-populated with the current stove schedule. See the [schedule example](#schedule-management) above.
+
+### Multiple Stoves
+
+To add multiple stoves, run the "Add Integration" flow once per stove — each gets its own config entry with its own module IP. In Local Only mode, each module needs its own firewall DNAT rule (`src_ip` = that module's IP). See [Proxy Modes](docs/PROXY_MODES.md#multiple-modules).
+
+## Known Limitations
+
+- **Air stoves only** (for now): tested with an air stove. Hydro (water) stoves may expose additional registers (boiler pressure, water temperature) that are not yet mapped.
+
 ## Features and Modes
 
 All features work via direct TCP connection to the module — no DNS or firewall setup required. Commands (ON/OFF, temperature, power, schedule) are sent instantly over TCP and take effect immediately. Schedules are delivered via dual path: TCP direct (immediate) + proxy command queue (backup, delivered on next module poll ~60s). The 4HEAT mobile app works on the same WiFi in both modes — it discovers the stove via UDP broadcast and communicates directly over TCP.
@@ -160,58 +212,6 @@ curl -s 'http://<HA_IP>:8123/api/devices/commands?id=<DEVICE_ID>&removefromserve
 The queue is populated by the integration when delivering schedules. Commands are cleared only when the module polls with `removefromserver=true`.
 
 See [Proxy Modes](docs/PROXY_MODES.md) for architecture and [Proxy Endpoints](docs/PROXY_ENDPOINTS.md) for the endpoint reference.
-
-## Installation
-
-### HACS (recommended)
-
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=pafernanr&repository=homeassistant-4heatlite&category=integration)
-
-Or manually add the custom repository:
-
-1. Open HACS in Home Assistant
-2. Click the three-dot menu (top right) and select **Custom repositories**
-3. Paste `https://github.com/pafernanr/homeassistant-4heatlite` and select **Integration** as category
-4. Click **Add**
-5. Find "4HEAT Lite Stove" in HACS and click **Download**
-6. Restart Home Assistant
-
-HACS will notify you in Home Assistant when a new version is available.
-
-### Manual
-
-1. Download the [latest release](https://github.com/pafernanr/homeassistant-4heatlite/releases/latest)
-2. Copy the `custom_components/4heatlite/` directory to your Home Assistant `config/custom_components/` directory
-3. Restart Home Assistant
-
-With manual installation you will not receive update notifications.
-
-## Configuration
-
-1. Go to Settings > Devices & Services > Add Integration
-2. Search for "4HEAT Lite Stove"
-3. Enter your 4HEAT account email and password (used once to retrieve the device key from the 4HEAT cloud)
-4. Enter the Device ID (printed on the module label), a name for your stove, and the module's IP address
-5. Optionally check **Local Only** to block cloud access (requires DNS/firewall setup on your router)
-6. The integration will verify connectivity before completing setup
-
-### Device ID
-
-The Device ID is printed on the module's label. You can also find it in the 4HEAT mobile app (device info section).
-
-### Options
-
-After setup, go to the integration's options to change:
-- **Local Only**: checkbox to enable/disable cloud blocking
-- **Weekly schedule**: YAML editor pre-populated with the current stove schedule. See the [schedule example](#schedule-management) above.
-
-### Multiple Stoves
-
-To add multiple stoves, run the "Add Integration" flow once per stove — each gets its own config entry with its own module IP. In Local Only mode, each module needs its own firewall DNAT rule (`src_ip` = that module's IP). See [Proxy Modes](docs/PROXY_MODES.md#multiple-modules).
-
-## Known Limitations
-
-- **Air stoves only** (for now): tested with an air stove. Hydro (water) stoves may expose additional registers (boiler pressure, water temperature) that are not yet mapped.
 
 ## Documentation
 
