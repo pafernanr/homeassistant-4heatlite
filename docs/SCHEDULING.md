@@ -4,10 +4,10 @@ The 4HEAT Lite WiFi module has a built-in scheduler that turns the stove on and 
 
 ## How it works
 
-1. The **mobile app** sends schedule commands to the cloud API (`POST /api/devices/command`), which queues them for the module.
-2. The **module** polls `GET /api/devices/commands`, receives the schedule command, and stores it internally.
-3. The module periodically uploads its current schedule to the cloud via `POST /api/devices/cron` (acknowledged by the proxy but not parsed).
-4. The module executes the schedule using its internal clock, which it synchronizes via `GET /api/Devices/timeAlign`.
+1. The **mobile app** sends schedule commands via **raw TCP** directly to the module on port 80. The app does NOT use the cloud commands queue for schedules.
+2. The **module** stores the schedule internally and executes it using its internal clock.
+3. The module periodically uploads its current schedule to the cloud via `POST /api/devices/cron`. The cloud stores it but never pushes it back — `GET /api/devices/commands` always returns `[]` for schedule data.
+4. The module synchronizes its clock via `GET /api/Devices/timeAlign`.
 
 ## Clock synchronization (timeAlign)
 
@@ -38,9 +38,9 @@ Used by the "Heating" page in the mobile app. Defines temperature bands (ECO, CO
 
 | Field | Description |
 |-------|-------------|
-| `count` | Number of data elements after the count field |
+| `count` | Total elements after `H24` and `count`: `(pairs × 2) + 5`. The 5 = `#register`, `program_index`, `ECO`, `COMFORT`, `COMFORT2` |
 | `#<register>` | Register reference (e.g., `#13`). The `#` prefix indicates new format |
-| `program_index` | Which heating program (0-based) |
+| `program_index` | Which heating program. **Must be `1`** — the stove ignores `program_index=0` |
 | `ECO` | ECO temperature value (raw, divided by 10 for °C) |
 | `COMFORT` | COMFORT temperature value |
 | `COMFORT2` | COMFORT2 temperature value |
@@ -62,8 +62,10 @@ Temperature values in the pairs match one of the defined bands (ECO, COMFORT, CO
 
 #### Example
 
+A schedule with 57 event pairs (4 daily comfort slots × 7 days, plus day-start OFF transitions):
+
 ```
-["H24","62","#13","0","180","230","240",
+["H24","119","#13","1","180","230","240",
   "0","0",       <- Monday 00:00, OFF
   "450","230",   <- Monday 07:30, COMFORT (23.0°C)
   "570","0",     <- Monday 09:30, OFF
@@ -73,7 +75,16 @@ Temperature values in the pairs match one of the defined bands (ECO, COMFORT, CO
 ]
 ```
 
-This defines 4 daily slots (07:30–09:30, 11:30–13:30, 15:30–17:30, 19:30–21:30) at COMFORT temperature, repeated every day.
+count = 57 pairs × 2 + 5 = **119**. This defines 4 daily slots (07:30–09:30, 11:30–13:30, 15:30–17:30, 19:30–21:30) at COMFORT temperature, repeated every day.
+
+**Important:** When queried back via `["CCG","0"]`, the stove returns `count=62` (pair count, not element count). The send and read formats use different count semantics.
+
+#### Protocol constraints
+
+- **JSON must be compact** — no spaces. Use `separators=(",",":")`. The stove returns `["ERR","1","1"]` on spaced JSON via TCP.
+- **program_index must be 1** — the stove silently ignores schedules with `program_index=0`.
+- **count must be `pairs*2 + 5`** — an incorrect count causes the stove to truncate the schedule. With count=62 (wrong) for 57 pairs, the stove only stored ~33 events.
+- **Minutes have 2-minute granularity** — the stove rounds odd minutes up (e.g., 19:31 → 19:32).
 
 ### CCS protocol (chronothermostat)
 
@@ -107,16 +118,21 @@ The module responds with its current schedule. The response protocol (`H24` or `
 
 ## Writing the schedule
 
-Schedule changes are sent via `POST /api/devices/command` (cloud) or directly via TCP (local):
+The integration uses **dual delivery**: TCP direct + proxy command queue.
 
-```json
-{
-  "id": "<device_id>",
-  "comando": ["H24","<count>","#<register>","<index>","<ECO>","<COMFORT>","<COMFORT2>", ...]
-}
+**TCP (primary):** Send the raw JSON array directly to the module on port 80. This is how the mobile app does it. Takes effect immediately. The stove responds `["H24","1","OK"]` on success or `["ERR","1","1"]` on failure.
+
+```
+["H24","119","#13","1","180","230","240","0","0","450","230",...]
 ```
 
-The command is queued server-side (or in the proxy's command queue) and delivered to the module on its next `GET /api/devices/commands` poll (~60 seconds). For local TCP, the command is sent directly and takes effect immediately.
+**Command queue (backup):** The same command is also enqueued in the proxy's in-memory queue. On the module's next `GET /api/devices/commands` poll (~60s), it receives the command wrapped in the queue format:
+
+```json
+[{"id":"<device_id>","comando":["H24","119","#13","1","180","230","240","0","0","450","230",...]}]
+```
+
+The queue response must use compact JSON (`separators=(",",":")`) to fit within the ESP32's HTTP receive buffer.
 
 ## Disabling the schedule
 
@@ -125,8 +141,10 @@ The mobile app disables the schedule by sending a CCS command with `period=0`, w
 **This integration uses H24 only.** Instead of switching to CCS, disabling sends an H24 command with no active time slots — a single transition at minute 0 with temperature 0 (OFF). The ECO/COMFORT/COMFORT2 temperatures from the current schedule are preserved in the command:
 
 ```
-["H24","6","#13","0","<ECO>","<COMFORT>","<COMFORT2>","0","0"]
+["H24","7","#13","1","<ECO>","<COMFORT>","<COMFORT2>","0","0"]
 ```
+
+count = 1 pair × 2 + 5 = **7**.
 
 The schedule data is cached in the HA config entry options and re-sent when re-enabled. The "Schedule Enabled" checkbox in the integration options controls this.
 
@@ -137,4 +155,4 @@ The schedule data is cached in the HA config entry options and re-sent when re-e
 | `local_only` | Acknowledge only (schedule data discarded) | Return local fallback with dynamic timezone offset |
 | `direct` | Forward to Azure, then acknowledge | Forward to Azure; fall back to local if cloud fails |
 
-The proxy does not currently store or expose the schedule data received via `POST /api/devices/cron`. To read the current schedule, query the module directly via TCP (`["CCG","0"]`).
+The proxy parses H24 data from `POST /api/devices/cron` and caches it in `device_entry["last_schedule"]`. This cache is used by the options flow and `get_schedule` service. The schedule can also be read directly from the module via TCP (`["CCG","0"]`).
