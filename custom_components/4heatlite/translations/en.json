@@ -30,7 +30,7 @@
   "options": {
     "step": {
       "init": {
-        "description": "Cloud Keepalive and Local Only modes require DNS/DNAT setup. See [Proxy Modes documentation](https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/PROXY_MODES.md).",
+        "description": "Cloud Keepalive and Local Only modes require DNS/DNAT setup. See [Proxy Modes documentation]({proxy_modes_url}).",
         "data": {
           "proxy_mode": "Proxy Mode",
           "schedules": "Heating Schedules"

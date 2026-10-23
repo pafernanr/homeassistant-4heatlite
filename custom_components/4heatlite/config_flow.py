@@ -311,6 +311,9 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                 }
             ),
             errors=errors,
+            description_placeholders={
+                "proxy_modes_url": "https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/PROXY_MODES.md"
+            },
         )
 
     def _deliver_command(self, cmd, device_id, proxy_state) -> bool:
