@@ -69,10 +69,6 @@ Registers 12/ffff (exhaust temp) and 12/fff7 (room temp) are also parsed but not
 | `0e0231` | Unknown | 0e | bytes 5-6 | reg_0e0231 |
 | `0c81` | Module info | 0c | raw hex | module_info |
 
-## Diagnostic Sensors
-
-Diagnostic sensors for unmapped response bytes are available but disabled by default. Enable them from the entity settings to help identify additional data fields while the stove is running.
-
 ## How Sensors Are Updated
 
 The integration uses two data sources:

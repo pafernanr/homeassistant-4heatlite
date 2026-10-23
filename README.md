@@ -90,7 +90,8 @@ All features work via direct TCP connection to the module. Commands (ON/OFF, tem
 
 | Feature | Direct (default) | Cloud Keepalive | Local Only |
 |---------|-----------------|-----------------|------------|
-| [Sensors](#sensors) (state, temperatures, power, errors) | Yes | Yes | Yes |
+| [Core sensors](#sensors) (state, temperatures, power, errors) | Yes | Yes | Yes |
+| [Additional sensors](#sensors) (airflow, fans, remote temps, counters) | No | Yes | Yes |
 | [Write commands](#write-commands) (ON/OFF, target temperature, power level) | Yes | Yes | Yes |
 | [Schedule management](#schedule-management) (weekly heating program) | Yes (TCP + queue) | Yes (TCP + queue) | Yes (TCP + queue) |
 | 4HEAT mobile app (same WiFi) | Yes | Yes | Yes |
@@ -116,7 +117,7 @@ In this mode:
 
 ### Sensors
 
-Read directly from the module over TCP (2WC protocol).
+Core sensors (TCP polling, all modes):
 
 - **State**: operating state (OFF, Ignition, Run, Modulation, Extinguishing, etc.)
 - **Error**: active error description (None, Failed Ignition, Exhaust over Temperature, etc.)
@@ -127,7 +128,15 @@ Read directly from the module over TCP (2WC protocol).
 - **Running**: binary sensor, ON when stove is in any active state
 - **Error Active**: binary sensor, ON when an error code is present
 
-See [Sensors & Entities](docs/SENSORS.md) for the full register map, 2WC protocol details, and diagnostic sensors.
+Additional sensors (proxy store push, cloud_keepalive/local_only modes):
+
+- **Remote Room Temperature** / **Remote Room Temperature 2**: remote temperature probes (°C, shows unavailable when no probe connected)
+- **Airflow**: combustion airflow (raw value)
+- **Heating Fan Power**: heating fan speed level
+- **Ducted Fan 1** / **Ducted Fan 2**: ducted fan speed levels (disabled by default)
+- **Cleaning Counter** / **Service Counter**: maintenance counters (diagnostic)
+
+See [Sensors & Entities](docs/SENSORS.md) for the full register map and 2WC protocol details.
 
 ### Write Commands
 

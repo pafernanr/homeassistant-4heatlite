@@ -37,23 +37,6 @@ async def async_setup_entry(
         PowerLevelSensor(coordinator, name),
     ]
 
-    # Diagnostic sensors for unknown bytes (disabled by default)
-    unknown_bytes = {
-        2: "On Off Flag",
-        3: "Byte 3",
-        6: "Byte 6",
-        7: "Byte 7",
-        8: "Byte 8",
-        9: "Byte 9",
-        12: "Byte 12",
-        13: "Byte 13",
-        16: "Byte 16",
-        17: "Byte 17",
-        18: "Byte 18",
-    }
-    for idx, label in unknown_bytes.items():
-        entities.append(RawByteSensor(coordinator, name, idx, label))
-
     for defn in REGISTER_SENSOR_DEFS:
         entities.append(RegisterSensor(coordinator, name, defn))
 
@@ -187,28 +170,6 @@ class PowerLevelSensor(FourHeatLiteEntity, SensorEntity):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.get("power")
-
-
-class RawByteSensor(FourHeatLiteEntity, SensorEntity):
-    """Diagnostic sensor for unmapped bytes."""
-
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_entity_registry_enabled_default = False
-
-    def __init__(self, coordinator, stove_name, byte_index, label):
-        super().__init__(coordinator, stove_name)
-        self._byte_index = byte_index
-        self._attr_name = f"{stove_name} {label}"
-        self._attr_unique_id = f"{stove_name}_raw_byte_{byte_index}"
-
-    @property
-    def native_value(self):
-        if self.coordinator.data is None:
-            return None
-        raw = self.coordinator.data.get("raw")
-        if raw and self._byte_index < len(raw):
-            return raw[self._byte_index]
-        return None
 
 
 REGISTER_SENSOR_DEFS = [
