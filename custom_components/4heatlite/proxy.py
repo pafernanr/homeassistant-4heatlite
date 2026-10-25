@@ -21,7 +21,12 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from .api import FourHeatLiteApi
-from .const import AZURE_HTTPS_BASE, PROXY_MODE_KEEPALIVE, STORE_REGISTERS
+from .const import (
+    AZURE_HTTPS_BASE,
+    PROXY_MODE_DIRECT,
+    PROXY_MODE_KEEPALIVE,
+    STORE_REGISTERS,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -108,10 +113,6 @@ def _lookup_device(state, device_id=None, remote_ip=None):
         if did and did in devices:
             return devices[did], did
 
-    if len(devices) == 1:
-        did, entry = next(iter(devices.items()))
-        return entry, did
-
     return None, None
 
 
@@ -126,9 +127,6 @@ def _promote_pending(state, device_id, remote_ip):
         if pentry.get("host") == remote_ip:
             matched_eid = eid
             break
-
-    if not matched_eid and len(pending) == 1:
-        matched_eid = next(iter(pending))
 
     if matched_eid:
         entry = pending.pop(matched_eid)
@@ -146,6 +144,33 @@ def _promote_pending(state, device_id, remote_ip):
     return None
 
 
+def _validate_module(state, remote_ip):
+    """Validate that a request comes from a configured non-direct-mode module.
+
+    Checks both active devices and pending entries. Returns (entry, device_id)
+    for active devices, (pending_entry, None) for pending entries, or
+    (None, None) if the caller is not recognised or the entry uses direct mode.
+    """
+    if not remote_ip:
+        return None, None
+
+    devices = state.get("devices", {})
+    for did, entry in devices.items():
+        if entry.get("host") == remote_ip:
+            if entry.get("proxy_mode") == PROXY_MODE_DIRECT:
+                return None, None
+            return entry, did
+
+    pending = state.get("pending", {})
+    for _eid, pentry in pending.items():
+        if pentry.get("host") == remote_ip:
+            if pentry.get("proxy_mode") == PROXY_MODE_DIRECT:
+                return None, None
+            return pentry, None
+
+    return None, None
+
+
 class StoveRegisterView(HomeAssistantView):
     """POST /api/devices/register — module registers on boot before polling."""
 
@@ -158,6 +183,12 @@ class StoveRegisterView(HomeAssistantView):
 
     async def post(self, request):
         remote_ip = request.remote
+
+        validated, _ = _validate_module(self._state, remote_ip)
+        if not validated:
+            _LOGGER.debug("Register: rejected request from %s", remote_ip)
+            return self.json({"Key": ""})
+
         try:
             body = await request.json()
         except Exception:
@@ -176,15 +207,9 @@ class StoveRegisterView(HomeAssistantView):
         )
         _LOGGER.debug("Register body: %s", json.dumps(body, separators=(",", ":")))
 
-        entry = None
-        if device_id and remote_ip:
-            entry, _ = _lookup_device(self._state, device_id=device_id)
-            if not entry:
-                entry = _promote_pending(self._state, device_id, remote_ip)
-            self._state.setdefault("hosts", {})[remote_ip] = device_id
-
-        if not entry:
-            entry, _ = _lookup_device(self._state, device_id=device_id)
+        entry, _ = _lookup_device(self._state, device_id=device_id)
+        if not entry and device_id and remote_ip:
+            entry = _promote_pending(self._state, device_id, remote_ip)
 
         device_key = entry.get("device_key", "") if entry else ""
         if not device_key:
@@ -215,24 +240,22 @@ class StoveCommandsView(HomeAssistantView):
         self._state = state
 
     async def get(self, request):
-        req_id = request.query.get("id", "")
         remote_ip = request.remote
 
+        validated, device_id = _validate_module(self._state, remote_ip)
+        if not validated:
+            _LOGGER.debug("Commands: rejected request from %s", remote_ip)
+            return self.json([])
+
+        req_id = request.query.get("id", "")
         entry, device_id = _lookup_device(
             self._state, device_id=req_id, remote_ip=remote_ip
         )
-
-        if not entry and req_id and remote_ip:
-            entry = _promote_pending(self._state, req_id, remote_ip)
-            device_id = req_id
 
         if not entry:
             if req_id:
                 _LOGGER.debug("Commands: unknown device %s from %s", req_id, remote_ip)
             return self.json([])
-
-        if remote_ip:
-            self._state.setdefault("hosts", {})[remote_ip] = device_id
 
         queue = entry.get("command_queue", [])
         if queue:
@@ -270,6 +293,12 @@ class StoveStoreView(HomeAssistantView):
 
     async def post(self, request):
         remote_ip = request.remote
+
+        validated, device_id = _validate_module(self._state, remote_ip)
+        if not validated:
+            _LOGGER.debug("Store: rejected request from %s", remote_ip)
+            return self.json({"DeviceId": "", "Assistant": ""})
+
         entry, device_id = _lookup_device(self._state, remote_ip=remote_ip)
         device_id = device_id or ""
 
@@ -357,6 +386,12 @@ class StoveCronView(HomeAssistantView):
 
     async def post(self, request):
         remote_ip = request.remote
+
+        validated, device_id = _validate_module(self._state, remote_ip)
+        if not validated:
+            _LOGGER.debug("Cron: rejected request from %s", remote_ip)
+            return self.json({"DeviceId": "", "Assistant": ""})
+
         entry, device_id = _lookup_device(self._state, remote_ip=remote_ip)
         device_id = device_id or ""
 
@@ -392,13 +427,18 @@ class StoveTimeAlignView(HomeAssistantView):
         self._state = state
 
     async def get(self, request):
-        device_key = request.query.get("deviceKey", "?")
+        remote_ip = request.remote
+
+        validated, _ = _validate_module(self._state, remote_ip)
+        if not validated:
+            _LOGGER.debug("TimeAlign: rejected request from %s", remote_ip)
+            return web.Response(status=404)
+
         now = datetime.now(timezone.utc)
         gmt_offset = int(now.astimezone().utcoffset().total_seconds())
         timestamp = int(time.time()) + gmt_offset
         _LOGGER.debug(
-            "TimeAlign: deviceKey=%s gmtOffset=%d timestamp=%d",
-            device_key, gmt_offset, timestamp,
+            "TimeAlign: gmtOffset=%d timestamp=%d", gmt_offset, timestamp,
         )
         return self.json({
             "gmtOffset": gmt_offset,
@@ -411,7 +451,7 @@ class ProxyDiagView(HomeAssistantView):
 
     url = "/api/devices/diag"
     name = "api:devices:diag"
-    requires_auth = False
+    requires_auth = True
 
     def __init__(self, state):
         self._state = state
