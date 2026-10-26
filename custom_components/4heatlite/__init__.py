@@ -1,6 +1,7 @@
 """The 4HEAT Lite integration."""
 
 import logging
+import socket
 
 import voluptuous as vol
 
@@ -28,6 +29,7 @@ from .const import (
     SERVICE_SET_SCHEDULE,
 )
 from .coordinator import FourHeatLiteCoordinator
+from .discovery import discover_module_by_id
 from .proxy import (
     ProxyDiagView,
     StoveCommandsView,
@@ -45,13 +47,44 @@ DATA_PLATFORMS = "platforms"
 PROXY_STATE = "proxy_state"
 
 
+async def _async_resolve_host(hass: HomeAssistant, host: str) -> str:
+    """Resolve a hostname to its IPv4 address. Returns the original host on failure."""
+    try:
+        result = await hass.async_add_executor_job(
+            socket.getaddrinfo, host, None, socket.AF_INET, socket.SOCK_STREAM
+        )
+        if result:
+            return result[0][4][0]
+    except OSError:
+        pass
+    return host
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up 4HEAT Lite from a config entry."""
-    coordinator = FourHeatLiteCoordinator(hass, entry.data[CONF_HOST])
-
     proxy_mode = entry.options.get(CONF_PROXY_MODE, PROXY_MODE_DIRECT)
     device_id = entry.data.get(CONF_DEVICE_ID, "")
-    host = entry.data[CONF_HOST]
+    stored_host = entry.data[CONF_HOST]
+
+    if device_id:
+        fresh_ip = await hass.async_add_executor_job(
+            discover_module_by_id, device_id
+        )
+        if fresh_ip:
+            host = fresh_ip
+            if fresh_ip != stored_host:
+                hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, CONF_HOST: fresh_ip}
+                )
+                _LOGGER.info(
+                    "Device %s IP changed: %s -> %s", device_id, stored_host, fresh_ip
+                )
+        else:
+            host = await _async_resolve_host(hass, stored_host)
+    else:
+        host = await _async_resolve_host(hass, stored_host)
+
+    coordinator = FourHeatLiteCoordinator(hass, host)
 
     hass.data.setdefault(DOMAIN, {})
 
@@ -269,6 +302,16 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, options=options, version=4
         )
         _LOGGER.info("Migrated config entry %s to version 4", entry.entry_id)
+
+    if entry.version == 4:
+        data = dict(entry.data)
+        host = data.get(CONF_HOST, "")
+        resolved = await _async_resolve_host(hass, host)
+        data[CONF_HOST] = resolved
+        hass.config_entries.async_update_entry(
+            entry, data=data, version=5
+        )
+        _LOGGER.info("Migrated config entry %s to version 5", entry.entry_id)
 
     return True
 

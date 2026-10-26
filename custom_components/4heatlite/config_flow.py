@@ -2,6 +2,7 @@
 
 import json
 import logging
+import socket
 
 import aiohttp
 import voluptuous as vol
@@ -10,6 +11,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_NAME
 
 from .api import FourHeatLiteApi
+from .discovery import discover_modules
 from homeassistant.helpers.selector import ObjectSelector
 
 from .const import (
@@ -31,14 +33,17 @@ _LOGGER = logging.getLogger(__name__)
 
 AZURE_TOKEN_URL = "https://wifi4heat.azurewebsites.net/Token"
 AZURE_DETAILS_URL = "https://wifi4heat.azurewebsites.net/api/devices/Details"
+MANUAL_ENTRY = "__manual__"
 
 
 class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for 4HEAT Lite."""
 
-    VERSION = 4
+    VERSION = 5
 
     _token: str | None = None
+    _discovered_device_id: str | None = None
+    _discovered_host: str | None = None
 
     async def async_step_user(self, user_input=None):
         """Step 1: authenticate with 4HEAT cloud using email/password."""
@@ -51,7 +56,7 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             token = await self._async_authenticate(email, password)
             if token:
                 self._token = token
-                return await self.async_step_device()
+                return await self.async_step_discovery()
             else:
                 errors["base"] = "auth_failed"
 
@@ -66,8 +71,45 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_discovery(self, user_input=None):
+        """Step 2: scan for modules on the local network."""
+        if user_input is not None:
+            selected = user_input.get("selected_device", MANUAL_ENTRY)
+            if selected != MANUAL_ENTRY:
+                parts = selected.split("|", 1)
+                if len(parts) == 2:
+                    self._discovered_device_id = parts[0]
+                    self._discovered_host = parts[1]
+            return await self.async_step_device()
+
+        modules = await self.hass.async_add_executor_job(discover_modules)
+
+        configured_ids = {
+            entry.data.get(CONF_DEVICE_ID)
+            for entry in self._async_current_entries()
+        }
+        modules = [m for m in modules if m["device_id"] not in configured_ids]
+
+        if not modules:
+            return await self.async_step_device()
+
+        options = {
+            f"{m['device_id']}|{m['ip']}": f"{m['device_id']} ({m['ip']})"
+            for m in modules
+        }
+        options[MANUAL_ENTRY] = "Manual entry"
+
+        return self.async_show_form(
+            step_id="discovery",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("selected_device"): vol.In(options),
+                }
+            ),
+        )
+
     async def async_step_device(self, user_input=None):
-        """Step 2: enter device details and fetch DeviceKey from Azure."""
+        """Step 3: confirm device details and fetch DeviceKey from Azure."""
         errors = {}
 
         if user_input is not None:
@@ -83,12 +125,15 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     break
 
             if not errors:
-                api = FourHeatLiteApi(host)
+                resolved = await self._async_resolve_host(host)
+                api = FourHeatLiteApi(resolved)
                 can_connect = await self.hass.async_add_executor_job(
                     api.test_connection
                 )
                 if not can_connect:
                     errors[CONF_HOST] = "cannot_connect"
+                else:
+                    host = resolved
 
             device_key = ""
             if not errors:
@@ -111,13 +156,16 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     options={CONF_PROXY_MODE: proxy_mode},
                 )
 
+        default_id = self._discovered_device_id or ""
+        default_host = self._discovered_host or ""
+
         return self.async_show_form(
             step_id="device",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_DEVICE_ID): str,
+                    vol.Required(CONF_DEVICE_ID, default=default_id): str,
                     vol.Required(CONF_NAME, default="Pellet Stove"): str,
-                    vol.Required(CONF_HOST): str,
+                    vol.Required(CONF_HOST, default=default_host): str,
                     vol.Optional(
                         CONF_PROXY_MODE, default=PROXY_MODE_DIRECT
                     ): vol.In({
@@ -129,6 +177,18 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
         )
+
+    async def _async_resolve_host(self, host: str) -> str:
+        """Resolve a hostname to its IPv4 address. Returns the original host on failure."""
+        try:
+            result = await self.hass.async_add_executor_job(
+                socket.getaddrinfo, host, None, socket.AF_INET, socket.SOCK_STREAM
+            )
+            if result:
+                return result[0][4][0]
+        except OSError:
+            pass
+        return host
 
     async def _async_authenticate(self, email: str, password: str) -> str | None:
         """POST /Token to get an access token."""

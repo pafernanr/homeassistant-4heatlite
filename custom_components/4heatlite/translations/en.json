@@ -9,9 +9,16 @@
           "password": "Password"
         }
       },
+      "discovery": {
+        "title": "Discover Stove Module",
+        "description": "Select a module found on your local network, or choose manual entry.",
+        "data": {
+          "selected_device": "Discovered modules"
+        }
+      },
       "device": {
         "title": "4HEAT Lite Stove",
-        "description": "Enter the details from your 4HEAT WiFi module label.",
+        "description": "Confirm the device details. The IP address was auto-detected.",
         "data": {
           "device_id": "Device ID (printed on module label)",
           "name": "Stove name",
