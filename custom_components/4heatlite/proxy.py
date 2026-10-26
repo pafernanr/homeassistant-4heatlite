@@ -147,14 +147,27 @@ def _promote_pending(state, device_id, remote_ip):
 def _validate_module(state, remote_ip):
     """Validate that a request comes from a configured non-direct-mode module.
 
-    Checks both active devices and pending entries. Returns (entry, device_id)
-    for active devices, (pending_entry, None) for pending entries, or
-    (None, None) if the caller is not recognised or the entry uses direct mode.
+    Checks active devices by configured host AND by the runtime hosts map
+    (which tracks the actual remote IP seen during register, covering NAT
+    scenarios where request.remote differs from the configured host).
+
+    Returns (entry, device_id) for active devices, (pending_entry, None) for
+    pending entries, or (None, None) if the caller is not recognised or the
+    entry uses direct mode.
     """
     if not remote_ip:
         return None, None
 
     devices = state.get("devices", {})
+    hosts = state.get("hosts", {})
+
+    did = hosts.get(remote_ip)
+    if did and did in devices:
+        entry = devices[did]
+        if entry.get("proxy_mode") == PROXY_MODE_DIRECT:
+            return None, None
+        return entry, did
+
     for did, entry in devices.items():
         if entry.get("host") == remote_ip:
             if entry.get("proxy_mode") == PROXY_MODE_DIRECT:
@@ -184,11 +197,6 @@ class StoveRegisterView(HomeAssistantView):
     async def post(self, request):
         remote_ip = request.remote
 
-        validated, _ = _validate_module(self._state, remote_ip)
-        if not validated:
-            _LOGGER.debug("Register: rejected request from %s", remote_ip)
-            return self.json({"Key": ""})
-
         try:
             body = await request.json()
         except Exception:
@@ -211,7 +219,23 @@ class StoveRegisterView(HomeAssistantView):
         if not entry and device_id and remote_ip:
             entry = _promote_pending(self._state, device_id, remote_ip)
 
-        device_key = entry.get("device_key", "") if entry else ""
+        if not entry:
+            _LOGGER.debug("Register: unknown device %s from %s", device_id, remote_ip)
+            return self.json({"Key": ""})
+
+        if entry.get("proxy_mode") == PROXY_MODE_DIRECT:
+            _LOGGER.debug("Register: device %s in direct mode, ignoring", device_id)
+            return self.json({"Key": ""})
+
+        if remote_ip and device_id:
+            hosts = self._state.setdefault("hosts", {})
+            if hosts.get(remote_ip) != device_id:
+                hosts[remote_ip] = device_id
+                _LOGGER.info(
+                    "Register: mapped remote %s to device %s", remote_ip, device_id
+                )
+
+        device_key = entry.get("device_key", "")
         if not device_key:
             _LOGGER.warning(
                 "No DeviceKey for device %s — reconfigure the integration",
