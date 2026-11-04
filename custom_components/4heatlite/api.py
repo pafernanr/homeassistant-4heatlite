@@ -51,6 +51,9 @@ class FourHeatLiteApi:
         self.power_range: tuple[int, int] | None = None
         # data key -> (min, max) of each fan register the stove answers for
         self.fan_ranges: dict[str, tuple[int, int]] = {}
+        # last record read per register: on whole-degree stoves a write must send
+        # the record back whole, or the module keeps it and the board never sees it
+        self._records: dict[str, str] = {}
 
     def _send(self, command: str) -> list:
         """Send a JSON command and return the parsed response.
@@ -112,6 +115,8 @@ class FourHeatLiteApi:
                 if not isinstance(hexdata, str) or len(hexdata) < min_hex_len:
                     continue
                 if register is None or hexdata.startswith(register):
+                    if register and len(register) == 6:
+                        self._records[register] = hexdata
                     return hexdata
             _LOGGER.debug("Register %s not in response: %s", register, response)
 
@@ -220,6 +225,19 @@ class FourHeatLiteApi:
             "raw": vals,
         }
 
+    def _record_frame(self, register: str, value: int) -> list | None:
+        """Write frame = 05 + the record last read, with only the value replaced.
+
+        On a whole-degree stove the short frame (value, min, max, 0000) is echoed
+        by the module but does not always reach the board: verified on the panel,
+        the target only changed with the whole record. 0.1 °C stoves keep the
+        frames they were verified with.
+        """
+        record = self._records.get(register)
+        if self.temp_divisor != 1 or not record or len(record) < 18:
+            return None
+        return ["2WC", "1", f"{WRITE_FUNCTION}{record[:6]}{value:04x}{record[10:]}"]
+
     def build_temp_command(self, temp_c: float) -> list:
         """Build write command for target temperature register (12/005a).
 
@@ -229,6 +247,9 @@ class FourHeatLiteApi:
         if self.temp_divisor == 1 and self.temp_range:
             low, high = self.temp_range
             raw = max(low, min(high, int(round(temp_c))))
+            frame = self._record_frame(REGISTER_TEMP, raw)
+            if frame:
+                return frame
             data = f"{WRITE_FUNCTION}{REGISTER_TEMP}{raw:04x}{low:04x}{high:04x}0000"
             return ["2WC", "1", data]
 
@@ -248,6 +269,9 @@ class FourHeatLiteApi:
         """
         low, high = self.power_range or (1, 7)
         level = max(low, min(high, level))
+        frame = self._record_frame(REGISTER_POWER, level)
+        if frame:
+            return frame
         level_hex = f"{level:04x}"
         data = f"050e016c{level_hex}0001000700"
         return ["2WC", "1", data]
@@ -261,6 +285,7 @@ class FourHeatLiteApi:
         for hexdata in records:
             if not isinstance(hexdata, str) or len(hexdata) < 18:
                 continue
+            self._records[hexdata[:6]] = hexdata
             value = self._decode_register(hexdata)[0]
             if hexdata.startswith(REGISTER_TEMP):
                 result["target_temp"] = value / self.temp_divisor
@@ -281,6 +306,9 @@ class FourHeatLiteApi:
         register = FAN_REGISTERS[key]
         low, high = self.fan_ranges.get(key, (0, 6))
         level = max(low, min(high, int(level)))
+        frame = self._record_frame(register, level)
+        if frame:
+            return frame
         data = f"{WRITE_FUNCTION}{register}{level:04x}{low:04x}{high:04x}0000"
         return ["2WC", "1", data]
 
