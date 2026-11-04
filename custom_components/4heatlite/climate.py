@@ -36,11 +36,7 @@ async def async_setup_entry(
 
 class StoveClimate(CoordinatorEntity, ClimateEntity):
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_target_temperature_step = 0.1
-    _attr_min_temp = 10.0
-    _attr_max_temp = 40.0
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
-    _attr_preset_modes = [f"Power {i}" for i in range(1, 8)]
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
         | ClimateEntityFeature.PRESET_MODE
@@ -62,6 +58,27 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
             "manufacturer": "4HEAT",
             "model": "Lite",
         }
+
+    # Step, range and power levels follow what the stove reports: whole °C
+    # and power 1-6 on Jollymec, 0.1 °C and power 1-7 on Lasian.
+    @property
+    def target_temperature_step(self):
+        return 1.0 if self.coordinator.api.temp_divisor == 1 else 0.1
+
+    @property
+    def min_temp(self):
+        api = self.coordinator.api
+        return api.temp_range[0] / api.temp_divisor if api.temp_range else 10.0
+
+    @property
+    def max_temp(self):
+        api = self.coordinator.api
+        return api.temp_range[1] / api.temp_divisor if api.temp_range else 40.0
+
+    @property
+    def preset_modes(self):
+        low, high = self.coordinator.api.power_range or (1, 7)
+        return [f"Power {i}" for i in range(low, high + 1)]
 
     @property
     def current_temperature(self):
@@ -127,7 +144,7 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
         temp = kwargs.get("temperature")
         if temp is None:
             return
-        cmd = FourHeatLiteApi.build_temp_command(temp)
+        cmd = self.coordinator.api.build_temp_command(temp)
         await self._send_command(cmd, f"set temperature {temp:.1f}C")
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
@@ -136,7 +153,7 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
         except (ValueError, IndexError):
             return
         await self._send_command(
-            FourHeatLiteApi.build_power_command(level), f"set power {level}"
+            self.coordinator.api.build_power_command(level), f"set power {level}"
         )
 
     async def async_turn_on(self) -> None:

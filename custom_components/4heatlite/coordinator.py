@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import FourHeatLiteApi
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, PROXY_POLL_INTERVAL
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, MAX_STALE_POLLS, PROXY_POLL_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ class FourHeatLiteCoordinator(DataUpdateCoordinator):
 
     def __init__(self, hass: HomeAssistant, host: str) -> None:
         self.api = FourHeatLiteApi(host)
+        self._failed_polls = 0
         super().__init__(
             hass,
             _LOGGER,
@@ -39,10 +40,19 @@ class FourHeatLiteCoordinator(DataUpdateCoordinator):
         self.async_set_updated_data(merged)
 
     async def _async_update_data(self) -> dict:
+        # Config first: the target register gives the temperature unit that
+        # decoding the sensor block needs.
+        config = await self.hass.async_add_executor_job(self.api.query_config)
         data = await self.hass.async_add_executor_job(self.api.query_sensors)
         if data is None:
+            self._failed_polls += 1
+            if self.data and self._failed_polls <= MAX_STALE_POLLS:
+                _LOGGER.debug(
+                    "Poll failed (%d in a row), keeping last data", self._failed_polls
+                )
+                return self.data
             raise UpdateFailed("Failed to query 4HEAT Lite module")
-        config = await self.hass.async_add_executor_job(self.api.query_config)
+        self._failed_polls = 0
         if config:
             data.update(config)
         return data

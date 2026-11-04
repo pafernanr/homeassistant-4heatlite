@@ -3,6 +3,8 @@
 import json
 import logging
 import socket
+import threading
+import time
 
 from .const import (
     BAND_NAMES,
@@ -10,8 +12,14 @@ from .const import (
     DAY_OFFSETS,
     MINUTES_PER_DAY,
     QUERY_CONFIG,
+    QUERY_EXHAUST,
+    QUERY_RETRIES,
+    QUERY_RETRY_DELAY,
     QUERY_SCHEDULE,
     QUERY_SENSORS,
+    REGISTER_EXHAUST,
+    REGISTER_POWER,
+    REGISTER_SENSORS,
     REGISTER_TEMP,
     SOCKET_BUFFER,
     SOCKET_TIMEOUT,
@@ -20,6 +28,7 @@ from .const import (
     TEMP_MIN_RAW,
     TEMP_SCALE,
     TEMP_WRITE_SUFFIX,
+    WHOLE_DEGREE_MAX_RAW,
     WRITE_FUNCTION,
 )
 
@@ -31,18 +40,37 @@ class FourHeatLiteApi:
 
     def __init__(self, host: str) -> None:
         self._host = host
+        # The module serves one TCP exchange at a time: polls, commands and
+        # schedule reads come from different executor threads.
+        self._lock = threading.Lock()
+        # 10 = temperatures in 0.1 °C (Lasian), 1 = whole °C (Jollymec).
+        # Detected from the target register's range on each config read.
+        self.temp_divisor = 10
+        self.temp_range: tuple[int, int] | None = None
+        self.power_range: tuple[int, int] | None = None
 
     def _send(self, command: str) -> list:
-        """Send a JSON command and return the parsed response."""
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(SOCKET_TIMEOUT)
-        try:
-            s.connect((self._host, TCP_PORT))
-            s.send(command.encode())
-            raw = s.recv(SOCKET_BUFFER).decode()
-        finally:
-            s.close()
-        return json.loads(raw)
+        """Send a JSON command and return the parsed response.
+
+        A reply can span several TCP segments (some modules answer with their
+        whole register cache), so read until it parses as JSON.
+        """
+        with self._lock:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(SOCKET_TIMEOUT)
+            try:
+                s.connect((self._host, TCP_PORT))
+                s.send(command.encode())
+                raw = b""
+                while chunk := s.recv(SOCKET_BUFFER):
+                    raw += chunk
+                    try:
+                        return json.loads(raw.decode())
+                    except ValueError:
+                        continue
+            finally:
+                s.close()
+        return json.loads(raw.decode())
 
     def send_command(self, cmd: list) -> list | None:
         """Send a command via TCP and return the parsed response."""
@@ -52,44 +80,95 @@ class FourHeatLiteApi:
             _LOGGER.warning("TCP command failed: %s", cmd)
             return None
 
-    def _query(self, command: str, min_hex_len: int = 4) -> str | None:
-        """Send a 2WC query and return hex payload, or None on failure."""
-        try:
-            response = self._send(command)
-        except (OSError, json.JSONDecodeError, ValueError) as exc:
-            _LOGGER.debug("Query failed: %s", exc)
-            return None
+    def _query(
+        self, command: str, min_hex_len: int = 4, register: str | None = None
+    ) -> str | None:
+        """Send a 2WC query and return hex payload, or None on failure.
 
-        if not isinstance(response, list) or len(response) < 3:
-            return None
-        if response[0] == "ERR":
-            _LOGGER.warning("Module returned error: %s", response)
-            return None
+        The module answers ["ERR","1","4"] now and then while busy, so the
+        query is retried. With ``register``, the payload must start with it:
+        some modules answer a single-register read with their whole cache,
+        and the requested record is picked out of it.
+        """
+        for attempt in range(QUERY_RETRIES + 1):
+            if attempt:
+                time.sleep(QUERY_RETRY_DELAY)
+            try:
+                response = self._send(command)
+            except (OSError, ValueError) as exc:
+                _LOGGER.debug("Query %s failed: %s", command, exc)
+                continue
 
-        hexdata = response[2]
-        if not hexdata or len(hexdata) < min_hex_len:
-            return None
-        return hexdata
+            if not isinstance(response, list) or len(response) < 3:
+                continue
+            if response[0] == "ERR":
+                _LOGGER.debug("Module returned error: %s", response)
+                continue
+
+            for hexdata in response[2:]:
+                if not isinstance(hexdata, str) or len(hexdata) < min_hex_len:
+                    continue
+                if register is None or hexdata.startswith(register):
+                    return hexdata
+            _LOGGER.debug("Register %s not in response: %s", register, response)
+
+        _LOGGER.warning(
+            "Query %s failed after %d attempts", command, QUERY_RETRIES + 1
+        )
+        return None
+
+    @staticmethod
+    def _decode_register(hexdata: str) -> tuple[int, int, int]:
+        """Split a 12/xxxx or 0e/xxxx record into (value, min, max).
+
+        Layout: <group + address, 3 bytes> <value, 2> <min, 2> <max, 2> ...
+        """
+        vals = bytes.fromhex(hexdata[:18])
+        return (
+            int.from_bytes(vals[3:5], "big"),
+            int.from_bytes(vals[5:7], "big"),
+            int.from_bytes(vals[7:9], "big"),
+        )
 
     def query_sensors(self) -> dict | None:
         """Query main sensor block (0310) and decode into a dict."""
-        hexdata = self._query(QUERY_SENSORS, min_hex_len=38)
+        hexdata = self._query(QUERY_SENSORS, min_hex_len=38, register=REGISTER_SENSORS)
         if hexdata is None:
             return None
-        return self._decode_0310(hexdata)
+        data = self._decode_0310(hexdata, self.temp_divisor)
+
+        # 0310 byte 4 stays 0 on some stoves (Jollymec); 12/ffff carries the
+        # exhaust temperature on every stove seen so far, on two bytes.
+        hexdata = self._query(QUERY_EXHAUST, min_hex_len=18, register=REGISTER_EXHAUST)
+        if hexdata:
+            data["exhaust_temp"] = self._decode_register(hexdata)[0]
+        return data
 
     def query_config(self) -> dict | None:
-        """Query target temp (12/005a) and power (0e/016c)."""
-        result = {}
-        hexdata = self._query(QUERY_CONFIG["target_temp"], min_hex_len=34)
-        if hexdata:
-            vals = [int(hexdata[i : i + 2], 16) for i in range(0, len(hexdata), 2)]
-            result["target_temp"] = ((vals[3] << 8) | vals[4]) / 10.0
+        """Query target temp (12/005a) and power (0e/016c).
 
-        hexdata = self._query(QUERY_CONFIG["power"], min_hex_len=34)
+        The target register's range also gives the stove's temperature unit:
+        100-400 on 0.1 °C stoves, 10-40 on whole-degree ones.
+        """
+        result = {}
+        hexdata = self._query(
+            QUERY_CONFIG["target_temp"], min_hex_len=18, register=REGISTER_TEMP
+        )
         if hexdata:
-            vals = [int(hexdata[i : i + 2], 16) for i in range(0, len(hexdata), 2)]
-            result["power"] = (vals[5] << 8) | vals[6]
+            value, low, high = self._decode_register(hexdata)
+            if high:
+                self.temp_divisor = 1 if high <= WHOLE_DEGREE_MAX_RAW else 10
+                self.temp_range = (low, high)
+            result["target_temp"] = value / self.temp_divisor
+
+        hexdata = self._query(
+            QUERY_CONFIG["power"], min_hex_len=18, register=REGISTER_POWER
+        )
+        if hexdata:
+            value, low, high = self._decode_register(hexdata)
+            if high:
+                self.power_range = (low, high)
+            result["power"] = value
 
         return result if result else None
 
@@ -99,16 +178,16 @@ class FourHeatLiteApi:
         return result is not None
 
     @staticmethod
-    def _decode_0310(hexdata: str) -> dict:
+    def _decode_0310(hexdata: str, temp_divisor: int = 10) -> dict:
         """Decode the 0310 sensor response (19 bytes / 38 hex chars).
 
         Confirmed register map (Lasian Eriste air stove):
           Byte  0: header (0x10)
           Byte  1: error code (0=none)
           Byte  2: on/off flag (0=off, 1=on)
-          Byte  4: exhaust temperature (°C, 1 byte)
+          Byte  4: exhaust temperature (°C, 1 byte; always 0 on Jollymec)
           Byte  5: operating state (0=OFF, 5=Run, 6=Modulation, etc.)
-          Bytes 10-11: room temperature (big-endian, 0.1°C)
+          Bytes 10-11: room temperature (big-endian, 0.1°C or whole °C)
         """
         vals = [int(hexdata[i : i + 2], 16) for i in range(0, len(hexdata), 2)]
         room_raw = (vals[10] << 8) | vals[11]
@@ -118,13 +197,22 @@ class FourHeatLiteApi:
             "error": vals[1],
             "on_off": vals[2],
             "exhaust_temp": vals[4],
-            "room_temp": room_raw / 10.0,
+            "room_temp": room_raw / temp_divisor,
             "raw": vals,
         }
 
-    @staticmethod
-    def build_temp_command(temp_c: float) -> list:
-        """Build write command for target temperature register (12/005a)."""
+    def build_temp_command(self, temp_c: float) -> list:
+        """Build write command for target temperature register (12/005a).
+
+        Whole-degree stoves get the frame verified on a Jollymec, with the
+        range read back from the register; 0.1 °C stoves keep the Lasian frame.
+        """
+        if self.temp_divisor == 1 and self.temp_range:
+            low, high = self.temp_range
+            raw = max(low, min(high, int(round(temp_c))))
+            data = f"{WRITE_FUNCTION}{REGISTER_TEMP}{raw:04x}{low:04x}{high:04x}0000"
+            return ["2WC", "1", data]
+
         raw = int(round(temp_c * 10))
         raw = max(TEMP_MIN_RAW, min(TEMP_MAX_RAW, raw))
         temp_hex = f"{raw:04x}"
@@ -133,10 +221,14 @@ class FourHeatLiteApi:
         data = f"{WRITE_FUNCTION}{REGISTER_TEMP}{temp_hex}{min_hex}{max_hex}{TEMP_WRITE_SUFFIX}"
         return ["2WC", "1", data]
 
-    @staticmethod
-    def build_power_command(level: int) -> list:
-        """Build write command for combustion power level (register 0e/016c, range 1-7)."""
-        level = max(1, min(7, level))
+    def build_power_command(self, level: int) -> list:
+        """Build write command for combustion power level (register 0e/016c).
+
+        The level is clamped to the range the stove reports (1-6 on Jollymec),
+        1-7 until the register has been read.
+        """
+        low, high = self.power_range or (1, 7)
+        level = max(low, min(high, level))
         level_hex = f"{level:04x}"
         data = f"050e016c{level_hex}0001000700"
         return ["2WC", "1", data]
