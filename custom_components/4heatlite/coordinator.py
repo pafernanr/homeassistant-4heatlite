@@ -55,4 +55,6 @@ class FourHeatLiteCoordinator(DataUpdateCoordinator):
         self._failed_polls = 0
         if config:
             data.update(config)
+        fans = await self.hass.async_add_executor_job(self.api.query_fans)
+        data.update(fans)
         return data

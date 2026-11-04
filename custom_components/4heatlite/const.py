@@ -15,6 +15,12 @@ QUERY_CONFIG = {
 QUERY_EXHAUST = '["2WC","1","0312ffff"]'
 REGISTER_SENSORS = "10"
 REGISTER_EXHAUST = "12ffff"
+# Fan levels, polled over TCP and writable: data key -> 0e register
+FAN_REGISTERS = {
+    "heating_fan_power": "0e023f",
+    "ducted_fan_1": "0e0266",
+    "ducted_fan_2": "0e027e",
+}
 
 # The module answers ["ERR","1","4"] now and then while busy
 QUERY_RETRIES = 2

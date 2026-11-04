@@ -10,6 +10,7 @@ from .const import (
     BAND_NAMES,
     DAY_NAMES,
     DAY_OFFSETS,
+    FAN_REGISTERS,
     MINUTES_PER_DAY,
     QUERY_CONFIG,
     QUERY_EXHAUST,
@@ -48,6 +49,8 @@ class FourHeatLiteApi:
         self.temp_divisor = 10
         self.temp_range: tuple[int, int] | None = None
         self.power_range: tuple[int, int] | None = None
+        # data key -> (min, max) of each fan register the stove answers for
+        self.fan_ranges: dict[str, tuple[int, int]] = {}
 
     def _send(self, command: str) -> list:
         """Send a JSON command and return the parsed response.
@@ -172,6 +175,22 @@ class FourHeatLiteApi:
 
         return result if result else None
 
+    def query_fans(self) -> dict:
+        """Query the fan level registers (heating fan, ducted fans 1-2).
+
+        Each is a 0e record with its own range: 1-6 for the heating fan,
+        0-6 for the ducted ones (0 = off) on a Jollymec-like stove.
+        """
+        result = {}
+        for key, register in FAN_REGISTERS.items():
+            hexdata = self._query(f'["2WC","1","03{register}"]', min_hex_len=18, register=register)
+            if hexdata:
+                value, low, high = self._decode_register(hexdata)
+                if high:
+                    self.fan_ranges[key] = (low, high)
+                result[key] = value
+        return result
+
     def test_connection(self) -> bool:
         """Test if the module responds to a 2WC query."""
         result = self.query_sensors()
@@ -231,6 +250,18 @@ class FourHeatLiteApi:
         level = max(low, min(high, level))
         level_hex = f"{level:04x}"
         data = f"050e016c{level_hex}0001000700"
+        return ["2WC", "1", data]
+
+    def build_fan_command(self, key: str, level: int) -> list:
+        """Build write command for a fan register, echoing the range it reports.
+
+        Same frame as the ducted-fan write verified on a Jollymec:
+        05 + register + value + min + max + 0000.
+        """
+        register = FAN_REGISTERS[key]
+        low, high = self.fan_ranges.get(key, (0, 6))
+        level = max(low, min(high, int(level)))
+        data = f"{WRITE_FUNCTION}{register}{level:04x}{low:04x}{high:04x}0000"
         return ["2WC", "1", data]
 
     @staticmethod
