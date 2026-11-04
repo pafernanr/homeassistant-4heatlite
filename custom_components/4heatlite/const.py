@@ -15,7 +15,8 @@ QUERY_CONFIG = {
 QUERY_EXHAUST = '["2WC","1","0312ffff"]'
 REGISTER_SENSORS = "10"
 REGISTER_EXHAUST = "12ffff"
-# Fan levels, polled over TCP and writable: data key -> 0e register
+# Fan levels, polled over TCP (read-only: on a Ferlux the board ignores remote
+# writes, the 4HEAT app included): data key -> 0e register
 FAN_REGISTERS = {
     "heating_fan_power": "0e023f",
     "ducted_fan_1": "0e0266",

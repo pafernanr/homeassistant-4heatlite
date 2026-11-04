@@ -279,7 +279,8 @@ class FourHeatLiteApi:
     def decode_echo(self, records: list) -> dict:
         """Decode the register records a write reply carries.
 
-        Covers the writable registers: target temperature, power and fans.
+        Covers the writable registers (target temperature, power) and the fans,
+        should a reply carry them.
         """
         result = {}
         for hexdata in records:
@@ -296,21 +297,6 @@ class FourHeatLiteApi:
                     if hexdata.startswith(register):
                         result[key] = value
         return result
-
-    def build_fan_command(self, key: str, level: int) -> list:
-        """Build write command for a fan register, echoing the range it reports.
-
-        Same frame as the ducted-fan write verified on a Jollymec:
-        05 + register + value + min + max + 0000.
-        """
-        register = FAN_REGISTERS[key]
-        low, high = self.fan_ranges.get(key, (0, 6))
-        level = max(low, min(high, int(level)))
-        frame = self._record_frame(register, level)
-        if frame:
-            return frame
-        data = f"{WRITE_FUNCTION}{register}{level:04x}{low:04x}{high:04x}0000"
-        return ["2WC", "1", data]
 
     @staticmethod
     def build_on_command() -> list:

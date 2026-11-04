@@ -48,6 +48,10 @@ class FourHeatLiteCoordinator(DataUpdateCoordinator):
         """
         if not response or not isinstance(response, list) or len(response) < 3:
             return False
+        # a reply carrying the whole cache holds the old value of the register
+        # just written: only a single-record reply is the echo of the write
+        if len(response) != 3:
+            return False
         data = self.api.decode_echo(response[2:])
         if not data:
             return False
