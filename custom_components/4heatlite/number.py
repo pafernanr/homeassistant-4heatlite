@@ -77,4 +77,5 @@ class FanLevelNumber(FourHeatLiteEntity, NumberEntity):
             _LOGGER.warning("TCP command failed: set %s %s", self._key, value)
             return
         _LOGGER.debug("Set %s to %s via TCP", self._key, value)
-        await self.coordinator.async_request_refresh()
+        if not self.coordinator.apply_echo(result):
+            await self.coordinator.async_request_refresh()

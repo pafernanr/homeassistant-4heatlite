@@ -252,6 +252,26 @@ class FourHeatLiteApi:
         data = f"050e016c{level_hex}0001000700"
         return ["2WC", "1", data]
 
+    def decode_echo(self, records: list) -> dict:
+        """Decode the register records a write reply carries.
+
+        Covers the writable registers: target temperature, power and fans.
+        """
+        result = {}
+        for hexdata in records:
+            if not isinstance(hexdata, str) or len(hexdata) < 18:
+                continue
+            value = self._decode_register(hexdata)[0]
+            if hexdata.startswith(REGISTER_TEMP):
+                result["target_temp"] = value / self.temp_divisor
+            elif hexdata.startswith(REGISTER_POWER):
+                result["power"] = value
+            else:
+                for key, register in FAN_REGISTERS.items():
+                    if hexdata.startswith(register):
+                        result[key] = value
+        return result
+
     def build_fan_command(self, key: str, level: int) -> list:
         """Build write command for a fan register, echoing the range it reports.
 

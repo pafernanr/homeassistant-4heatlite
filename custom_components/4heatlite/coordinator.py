@@ -39,6 +39,21 @@ class FourHeatLiteCoordinator(DataUpdateCoordinator):
             merged = data
         self.async_set_updated_data(merged)
 
+    def apply_echo(self, response: list | None) -> bool:
+        """Publish the value a write command's reply carries, right away.
+
+        The module answers a write with the updated register; without this
+        the entity showed the old value until the debounced refresh, and a
+        second change made meanwhile looked like it bounced back.
+        """
+        if not response or not isinstance(response, list) or len(response) < 3:
+            return False
+        data = self.api.decode_echo(response[2:])
+        if not data:
+            return False
+        self.push_data(data)
+        return True
+
     async def _async_update_data(self) -> dict:
         # Config first: the target register gives the temperature unit that
         # decoding the sensor block needs.
