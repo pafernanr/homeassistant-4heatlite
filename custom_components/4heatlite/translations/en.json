@@ -45,10 +45,12 @@
         "data": {
           "proxy_mode": "Proxy Mode",
           "module_address": "Expected module IP",
+          "fan_register": "Fan register (advanced)",
           "schedules": "Heating Schedules"
         },
         "data_description": {
-          "module_address": "Source IP that Home Assistant expects for proxy requests. Set to router IP if the module is behind NAT."
+          "module_address": "Source IP that Home Assistant expects for proxy requests. Set to router IP if the module is behind NAT.",
+          "fan_register": "Register the panel's fan setting lives in, when the 4HEAT filemap points the fan elsewhere: 0e038c on a Ferlux. Adds a fan number entity. Leave empty if unsure."
         }
       }
     },
@@ -59,7 +61,8 @@
       "invalid_day": "Day names must be: mon, tue, wed, thu, fri, sat, sun.",
       "overlapping_slots": "Time slots overlap on the same day.",
       "schedule_send_failed": "Failed to send schedule to module.",
-      "multiple_active": "Only one schedule can be active at a time."
+      "multiple_active": "Only one schedule can be active at a time.",
+      "invalid_register": "A register is 6 hex digits, group + address (e.g. 0e038c)."
     }
   }
 }
