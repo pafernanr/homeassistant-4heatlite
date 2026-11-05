@@ -51,6 +51,9 @@ class FourHeatLiteApi:
         self.power_range: tuple[int, int] | None = None
         # data key -> (min, max) of each fan register the stove answers for
         self.fan_ranges: dict[str, tuple[int, int]] = {}
+        # the panel's fan setting, when configured (CONF_FAN_REGISTER); signed
+        self.fan_register: str | None = None
+        self.fan_setting_range: tuple[int, int] | None = None
         # last record read per register: on whole-degree stoves a write must send
         # the record back whole, or the module keeps it and the board never sees it
         self._records: dict[str, str] = {}
@@ -138,6 +141,16 @@ class FourHeatLiteApi:
             int.from_bytes(vals[7:9], "big"),
         )
 
+    @staticmethod
+    def _decode_signed(hexdata: str) -> tuple[int, int, int]:
+        """Like _decode_register, two's complement: fff9 = -7."""
+        vals = bytes.fromhex(hexdata[:18])
+        return (
+            int.from_bytes(vals[3:5], "big", signed=True),
+            int.from_bytes(vals[5:7], "big", signed=True),
+            int.from_bytes(vals[7:9], "big", signed=True),
+        )
+
     def query_sensors(self) -> dict | None:
         """Query main sensor block (0310) and decode into a dict."""
         hexdata = self._query(QUERY_SENSORS, min_hex_len=38, register=REGISTER_SENSORS)
@@ -196,6 +209,22 @@ class FourHeatLiteApi:
                 result[key] = value
         return result
 
+    def query_fan_setting(self) -> dict:
+        """Query the panel's fan setting, if a register is configured.
+
+        Signed, with the range the record carries (-7..+7 on a Ferlux).
+        """
+        if not self.fan_register:
+            return {}
+        register = self.fan_register
+        hexdata = self._query(f'["2WC","1","03{register}"]', min_hex_len=18, register=register)
+        if not hexdata:
+            return {}
+        value, low, high = self._decode_signed(hexdata)
+        if low < high:
+            self.fan_setting_range = (low, high)
+        return {"fan_setting": value}
+
     def test_connection(self) -> bool:
         """Test if the module responds to a 2WC query."""
         result = self.query_sensors()
@@ -233,10 +262,16 @@ class FourHeatLiteApi:
         the target only changed with the whole record. 0.1 °C stoves keep the
         frames they were verified with.
         """
-        record = self._records.get(register)
-        if self.temp_divisor != 1 or not record or len(record) < 18:
+        if self.temp_divisor != 1:
             return None
-        return ["2WC", "1", f"{WRITE_FUNCTION}{record[:6]}{value:04x}{record[10:]}"]
+        return self._whole_record(register, value)
+
+    def _whole_record(self, register: str, value: int) -> list | None:
+        """05 + the record last read with the value replaced, or None if unread."""
+        record = self._records.get(register)
+        if not record or len(record) < 18:
+            return None
+        return ["2WC", "1", f"{WRITE_FUNCTION}{record[:6]}{value & 0xFFFF:04x}{record[10:]}"]
 
     def build_temp_command(self, temp_c: float) -> list:
         """Build write command for target temperature register (12/005a).
@@ -276,11 +311,24 @@ class FourHeatLiteApi:
         data = f"050e016c{level_hex}0001000700"
         return ["2WC", "1", data]
 
+    def build_fan_setting_command(self, value: int) -> list | None:
+        """Write the panel's fan setting: the whole record, value replaced.
+
+        Verified on a Ferlux (0e038c): +5 -> +2 changed on the panel. None
+        until the register has been read.
+        """
+        if not self.fan_register:
+            return None
+        if self.fan_setting_range:
+            low, high = self.fan_setting_range
+            value = max(low, min(high, value))
+        return self._whole_record(self.fan_register, value)
+
     def decode_echo(self, records: list) -> dict:
         """Decode the register records a write reply carries.
 
-        Covers the writable registers (target temperature, power) and the fans,
-        should a reply carry them.
+        Covers the writable registers (target temperature, power, the fan
+        setting) and the declared fans, should a reply carry them.
         """
         result = {}
         for hexdata in records:
@@ -288,7 +336,9 @@ class FourHeatLiteApi:
                 continue
             self._records[hexdata[:6]] = hexdata
             value = self._decode_register(hexdata)[0]
-            if hexdata.startswith(REGISTER_TEMP):
+            if self.fan_register and hexdata.startswith(self.fan_register):
+                result["fan_setting"] = self._decode_signed(hexdata)[0]
+            elif hexdata.startswith(REGISTER_TEMP):
                 result["target_temp"] = value / self.temp_divisor
             elif hexdata.startswith(REGISTER_POWER):
                 result["power"] = value

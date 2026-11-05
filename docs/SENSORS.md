@@ -162,13 +162,25 @@ Example — set target temperature to 28.8°C:
 - `0190` — max 40.0°C
 - `0001000100` — trailing register data
 
-On whole-degree stoves the target frame carries whole °C and echoes the range read from the register (verified on a Jollymec and on a second whole-degree stove):
+On whole-degree stoves a write sends back the whole record last read, with only the value replaced. This is the format the 4HEAT cloud sends:
 ```
-["2WC","1","0512005a0015000a00280000"]
+["2WC","1","0512005a0019000a00280000000100000000"]
 ```
-- `0015` — 21 °C, `000a` — min 10 °C, `0028` — max 40 °C, `0000` — trailing data
+- `12005a0019000a00280000000100000000` — the record of 12/005a as read, with the value set to `0019` (25 °C); `000a` and `0028` are its min and max, 10 and 40 °C
 
-The module answers with the updated register, e.g. `["2WC","1","12005a0015000a0028..."]`.
+The short frame `0512005a0019000a00280000` (from issue #2) is echoed by the module, but on a Ferlux it did not reliably reach the board: the panel kept the old value. With the whole record, target 26→25 and power P1→P3→P1 changed on the panel.
+
+The module answers with the updated register, e.g. `["2WC","1","12005a0019000a0028..."]`. A reply carrying the whole register cache holds the old value, so only a single-record reply is published as the new state.
+
+### Fan setting
+
+On a Ferlux (product `SYEVO0000559`) the fan setting of the panel is not the register the 4HEAT filemap declares for the heating fan. `0e/023f` never moved when the panel's fan changed, and the 4HEAT app, which writes there, could not change it either. The panel's setting is `0e/038c`, an offset from -7 to +7 on the speed the board picks:
+```
+0e038c 0005 fff9 0007 00000001038c0000      +5, min -7, max +7
+```
+Values are two's complement (`fff9` = -7). Writing the whole record with the value replaced changed the panel (+5 → +2).
+
+The **Fan register** option (`0e038c` on that stove) adds a fan number entity on that register, with the range the record reports. Other stoves keep it empty. To look for the register on another stove, read the `0e` group one address at a time (`["2WC","1","030e<address>"]`, read-only), change the fan on the panel, read again and compare.
 
 ### Temperature unit
 

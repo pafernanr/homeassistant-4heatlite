@@ -19,6 +19,7 @@ from .const import (
     CONF_CACHED_SCHEDULES,
     CONF_DEVICE_ID,
     CONF_DEVICE_KEY,
+    CONF_FAN_REGISTER,
     CONF_MODULE_ADDRESS,
     CONF_PROXY_MODE,
     DATA_COORDINATOR,
@@ -264,6 +265,11 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 PROXY_STATE = "proxy_state"
 
 
+def _is_register(value: str) -> bool:
+    """A 2WC register address: 6 hex digits, group + address (0e038c)."""
+    return len(value) == 6 and all(c in "0123456789abcdef" for c in value)
+
+
 class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
     """Handle options for 4HEAT Lite."""
 
@@ -273,8 +279,11 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_DIRECT)
             schedules_data = user_input.get("schedules")
+            fan_register = user_input.get(CONF_FAN_REGISTER, "").strip().lower()
 
-            if not isinstance(schedules_data, list):
+            if fan_register and not _is_register(fan_register):
+                errors[CONF_FAN_REGISTER] = "invalid_register"
+            elif not isinstance(schedules_data, list):
                 errors["schedules"] = "invalid_schedule"
             else:
                 active_indices = [
@@ -343,6 +352,7 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                 return self.async_create_entry(data={
                     CONF_PROXY_MODE: proxy_mode,
                     CONF_MODULE_ADDRESS: module_address,
+                    CONF_FAN_REGISTER: fan_register,
                     CONF_ACTIVE_SCHEDULE: new_active,
                     CONF_CACHED_SCHEDULES: schedules_data,
                 })
@@ -354,6 +364,7 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
             CONF_MODULE_ADDRESS,
             self.config_entry.data.get(CONF_HOST, ""),
         )
+        current_fan_register = self.config_entry.options.get(CONF_FAN_REGISTER, "")
         current_schedules = self.config_entry.options.get(
             CONF_CACHED_SCHEDULES, []
         )
@@ -385,6 +396,10 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_MODULE_ADDRESS,
                         default=current_module_addr,
+                    ): str,
+                    vol.Optional(
+                        CONF_FAN_REGISTER,
+                        default=current_fan_register,
                     ): str,
                     vol.Optional(
                         "schedules",

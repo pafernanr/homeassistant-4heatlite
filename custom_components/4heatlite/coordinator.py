@@ -76,4 +76,6 @@ class FourHeatLiteCoordinator(DataUpdateCoordinator):
             data.update(config)
         fans = await self.hass.async_add_executor_job(self.api.query_fans)
         data.update(fans)
+        fan_setting = await self.hass.async_add_executor_job(self.api.query_fan_setting)
+        data.update(fan_setting)
         return data
