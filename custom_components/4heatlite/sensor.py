@@ -169,7 +169,7 @@ class PowerLevelSensor(FourHeatLiteEntity, SensorEntity):
     def native_value(self):
         if self.coordinator.data is None:
             return None
-        return self.coordinator.data.get("power")
+        return self.coordinator.data.get("live_power")
 
 
 REGISTER_SENSOR_DEFS = [

@@ -17,6 +17,10 @@ REGISTER_SENSORS = "10"
 REGISTER_EXHAUST = "12ffff"
 # Fan levels the 4HEAT filemap declares, polled over TCP: data key -> 0e register.
 # On a Ferlux the panel's fan setting is not among them (see CONF_FAN_REGISTER).
+# state_info: byte 3 is the running power level as an ASCII digit (liv_pot).
+# 0e/016c stays at the max on Lasian, so it is the set point only.
+QUERY_MODULE_INFO = '["2WC","1","030c81"]'
+REGISTER_MODULE_INFO = "0c81"
 FAN_REGISTERS = {
     "heating_fan_power": "0e023f",
     "ducted_fan_1": "0e0266",

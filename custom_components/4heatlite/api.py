@@ -14,11 +14,13 @@ from .const import (
     MINUTES_PER_DAY,
     QUERY_CONFIG,
     QUERY_EXHAUST,
+    QUERY_MODULE_INFO,
     QUERY_RETRIES,
     QUERY_RETRY_DELAY,
     QUERY_SCHEDULE,
     QUERY_SENSORS,
     REGISTER_EXHAUST,
+    REGISTER_MODULE_INFO,
     REGISTER_POWER,
     REGISTER_SENSORS,
     REGISTER_TEMP,
@@ -208,6 +210,21 @@ class FourHeatLiteApi:
                     self.fan_ranges[key] = (low, high)
                 result[key] = value
         return result
+
+    def query_live_power(self) -> dict:
+        """Query the running power level from state_info (0c81), liv_pot.
+
+        Byte 3 is an ASCII digit: 0x32 is power 2.
+        """
+        hexdata = self._query(
+            QUERY_MODULE_INFO, min_hex_len=8, register=REGISTER_MODULE_INFO
+        )
+        if not hexdata:
+            return {}
+        digit = bytes.fromhex(hexdata[:8])[3]
+        if not 0x30 <= digit <= 0x39:
+            return {}
+        return {"live_power": digit - 0x30}
 
     def query_fan_setting(self) -> dict:
         """Query the panel's fan setting, if a register is configured.
