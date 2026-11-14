@@ -12,6 +12,25 @@ QUERY_CONFIG = {
     "target_temp": '["2WC","1","0312005a"]',
     "power": '["2WC","1","030e016c"]',
 }
+QUERY_EXHAUST = '["2WC","1","0312ffff"]'
+REGISTER_SENSORS = "10"
+REGISTER_EXHAUST = "12ffff"
+# Fan levels the 4HEAT filemap declares, polled over TCP: data key -> 0e register.
+# On a Ferlux the panel's fan setting is not among them (see CONF_FAN_REGISTER).
+FAN_REGISTERS = {
+    "heating_fan_power": "0e023f",
+    "ducted_fan_1": "0e0266",
+    "ducted_fan_2": "0e027e",
+}
+
+# The module answers ["ERR","1","4"] now and then while busy
+QUERY_RETRIES = 2
+QUERY_RETRY_DELAY = 1.5
+# Failed polls that keep the last data before entities go unavailable
+MAX_STALE_POLLS = 2
+
+# Target register max at or below this = whole-degree stove (10-40 vs 100-400)
+WHOLE_DEGREE_MAX_RAW = 100
 
 DEFAULT_SCAN_INTERVAL = 30
 
@@ -66,6 +85,10 @@ CONF_MODULE_ADDRESS = "module_address"
 CONF_PROXY_MODE = "proxy_mode"
 CONF_SCHEDULE_ENABLED = "schedule_enabled"  # v2 migration only
 CONF_CACHED_SCHEDULE = "cached_schedule"  # v2 migration only
+# The register the panel's fan setting lives in, when it isn't one the filemap
+# declares: 0e038c (-7..+7) on a Ferlux SYEVO0000559, whose 0e023f never moves.
+# Empty = no fan control.
+CONF_FAN_REGISTER = "fan_register"
 CONF_ACTIVE_SCHEDULE = "active_schedule"
 CONF_CACHED_SCHEDULES = "cached_schedules"
 NUM_SCHEDULE_SLOTS = 3
@@ -83,13 +106,13 @@ PROXY_POLL_INTERVAL = 120
 
 STORE_REGISTERS = {
     "12ffff": {"key": "exhaust_temp_store", "group": "12", "scale": 1},
-    "12fff7": {"key": "room_temp_store", "group": "12", "scale": 0.1},
-    "12ffe0": {"key": "remote_room_temp", "group": "12", "scale": 0.1},
-    "12ffe8": {"key": "remote_room_temp_2", "group": "12", "scale": 0.1},
+    "12fff7": {"key": "room_temp_store", "group": "12", "temp": True},
+    "12ffe0": {"key": "remote_room_temp", "group": "12", "temp": True},
+    "12ffe8": {"key": "remote_room_temp_2", "group": "12", "temp": True},
     "12ffed": {"key": "airflow", "group": "12", "scale": 1},
     "12ffde": {"key": "cleaning_counter", "group": "12", "scale": 1},
     "12ffdf": {"key": "service_counter", "group": "12", "scale": 1},
-    "12005a": {"key": "target_temp", "group": "12", "scale": 0.1},
+    "12005a": {"key": "target_temp", "group": "12", "temp": True},
     "120058": {"key": "reg_120058", "group": "12", "scale": 1},
     "120059": {"key": "reg_120059", "group": "12", "scale": 1},
     "0e016c": {"key": "power", "group": "0e"},

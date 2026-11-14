@@ -323,7 +323,7 @@ class StoveStoreView(HomeAssistantView):
         if values and entry:
             coordinator = entry.get("coordinator")
             if coordinator:
-                data = self._parse_values(values)
+                data = self._parse_values(values, coordinator.api.temp_divisor)
                 if data:
                     _LOGGER.info(
                         "Store: parsed from %s (device %s): %s",
@@ -344,13 +344,13 @@ class StoveStoreView(HomeAssistantView):
         return self.json(ok_response)
 
     @staticmethod
-    def _parse_values(values):
+    def _parse_values(values, temp_divisor=10):
         result = {}
         for hexdata in values:
             if not isinstance(hexdata, str) or len(hexdata) < 4:
                 continue
             if hexdata.startswith("10") and len(hexdata) >= 38:
-                result.update(FourHeatLiteApi._decode_0310(hexdata))
+                result.update(FourHeatLiteApi._decode_0310(hexdata, temp_divisor))
                 continue
             matched = False
             for prefix, meta in STORE_REGISTERS.items():
@@ -361,9 +361,13 @@ class StoveStoreView(HomeAssistantView):
                 group = meta["group"]
                 if group == "12" and len(vals) >= 5:
                     raw = (vals[3] << 8) | vals[4]
-                    result[meta["key"]] = raw * meta.get("scale", 1)
-                elif group == "0e" and len(vals) >= 7:
-                    result[meta["key"]] = (vals[5] << 8) | vals[6]
+                    if meta.get("temp"):
+                        result[meta["key"]] = raw / temp_divisor
+                    else:
+                        result[meta["key"]] = raw * meta.get("scale", 1)
+                elif group == "0e" and len(vals) >= 5:
+                    # <register, 3 bytes> <value, 2> <min, 2> <max, 2>
+                    result[meta["key"]] = (vals[3] << 8) | vals[4]
                 elif group == "0c":
                     result[meta["key"]] = hexdata
                 break
