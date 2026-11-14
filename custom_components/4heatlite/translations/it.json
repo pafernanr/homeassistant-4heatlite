@@ -1,0 +1,66 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Accesso al cloud 4HEAT",
+        "description": "Accedi con il tuo account 4HEAT per recuperare la chiave del dispositivo.",
+        "data": {
+          "email": "E-mail",
+          "password": "Password"
+        }
+      },
+      "discovery": {
+        "title": "Cerca modulo della stufa",
+        "description": "Seleziona un modulo trovato nella rete locale oppure scegli l'inserimento manuale.",
+        "data": {
+          "selected_device": "Moduli trovati"
+        }
+      },
+      "device": {
+        "title": "Stufa 4HEAT Lite",
+        "description": "Conferma i dati del dispositivo. L'indirizzo IP è stato rilevato automaticamente.",
+        "data": {
+          "device_id": "ID dispositivo (stampato sull'etichetta del modulo)",
+          "name": "Nome della stufa",
+          "host": "Host (indirizzo IP del modulo 4HEAT)",
+          "proxy_mode": "Modalità proxy",
+          "module_address": "IP previsto del modulo"
+        },
+        "data_description": {
+          "module_address": "IP di origine che Home Assistant si aspetta per le richieste proxy. Usa l'IP del router se il modulo è dietro NAT."
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Autenticazione non riuscita. Controlla e-mail e password.",
+      "cannot_connect": "Impossibile connettersi al modulo. Verifica l'IP e che la stufa sia accesa.",
+      "already_configured": "Questo dispositivo è già configurato.",
+      "device_key_failed": "Impossibile recuperare la chiave del dispositivo dal cloud 4HEAT. Controlla l'ID dispositivo."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Le modalità «Cloud Keepalive» e «Local Only» richiedono la configurazione di DNS/DNAT. Vedi la [documentazione sulle modalità proxy]({proxy_modes_url}).",
+        "data": {
+          "proxy_mode": "Modalità proxy",
+          "module_address": "IP previsto del modulo",
+          "schedules": "Programmi di riscaldamento"
+        },
+        "data_description": {
+          "module_address": "IP di origine che Home Assistant si aspetta per le richieste proxy. Usa l'IP del router se il modulo è dietro NAT."
+        }
+      }
+    },
+    "error": {
+      "invalid_schedule": "Formato del programma non valido. Chiavi richieste: eco, comfort, comfort2, slots.",
+      "invalid_temperature": "I valori di temperatura devono essere compresi tra 10,0 e 40,0.",
+      "invalid_time": "Gli orari devono essere nel formato HH:MM, con inizio prima della fine.",
+      "invalid_day": "I giorni devono essere: mon, tue, wed, thu, fri, sat, sun.",
+      "overlapping_slots": "Le fasce orarie si sovrappongono nello stesso giorno.",
+      "schedule_send_failed": "Impossibile inviare il programma al modulo.",
+      "multiple_active": "È possibile avere un solo programma attivo alla volta.",
+      "invalid_register": "Un registro è composto da 6 cifre esadecimali: gruppo + indirizzo (es. 0e038c)."
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Inicio de sesión en la nube 4HEAT",
+        "description": "Inicia sesión con tu cuenta 4HEAT para obtener la clave del dispositivo.",
+        "data": {
+          "email": "Correo electrónico",
+          "password": "Contraseña"
+        }
+      },
+      "discovery": {
+        "title": "Buscar módulo de la estufa",
+        "description": "Selecciona un módulo encontrado en tu red local o elige la introducción manual.",
+        "data": {
+          "selected_device": "Módulos encontrados"
+        }
+      },
+      "device": {
+        "title": "Estufa 4HEAT Lite",
+        "description": "Confirma los datos del dispositivo. La dirección IP se detectó automáticamente.",
+        "data": {
+          "device_id": "ID del dispositivo (impreso en la etiqueta del módulo)",
+          "name": "Nombre de la estufa",
+          "host": "Host (dirección IP del módulo 4HEAT)",
+          "proxy_mode": "Modo proxy",
+          "module_address": "IP esperada del módulo"
+        },
+        "data_description": {
+          "module_address": "IP de origen que Home Assistant espera para las peticiones proxy. Usa la IP del router si el módulo está detrás de NAT."
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Error de autenticación. Revisa el correo y la contraseña.",
+      "cannot_connect": "No se puede conectar al módulo. Verifica la IP y que la estufa esté encendida.",
+      "already_configured": "Este dispositivo ya está configurado.",
+      "device_key_failed": "No se pudo obtener la clave del dispositivo de la nube 4HEAT. Revisa el ID del dispositivo."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Los modos «Cloud Keepalive» y «Local Only» requieren configurar DNS/DNAT. Consulta la [documentación de los modos proxy]({proxy_modes_url}).",
+        "data": {
+          "proxy_mode": "Modo proxy",
+          "module_address": "IP esperada del módulo",
+          "schedules": "Horarios de calefacción"
+        },
+        "data_description": {
+          "module_address": "IP de origen que Home Assistant espera para las peticiones proxy. Usa la IP del router si el módulo está detrás de NAT."
+        }
+      }
+    },
+    "error": {
+      "invalid_schedule": "Formato de horario no válido. Claves obligatorias: eco, comfort, comfort2, slots.",
+      "invalid_temperature": "Los valores de temperatura deben estar entre 10,0 y 40,0.",
+      "invalid_time": "Las horas deben tener el formato HH:MM, con inicio anterior al fin.",
+      "invalid_day": "Los días deben ser: mon, tue, wed, thu, fri, sat, sun.",
+      "overlapping_slots": "Los intervalos se solapan el mismo día.",
+      "schedule_send_failed": "No se pudo enviar el horario al módulo.",
+      "multiple_active": "Solo puede haber un horario activo a la vez.",
+      "invalid_register": "Un registro tiene 6 dígitos hexadecimales: grupo + dirección (p. ej. 0e038c)."
+    }
+  }
+}

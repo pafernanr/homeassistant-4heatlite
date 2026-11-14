@@ -1,0 +1,66 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connexion au cloud 4HEAT",
+        "description": "Connectez-vous à votre compte 4HEAT pour récupérer la clé de l'appareil.",
+        "data": {
+          "email": "E-mail",
+          "password": "Mot de passe"
+        }
+      },
+      "discovery": {
+        "title": "Rechercher le module du poêle",
+        "description": "Sélectionnez un module trouvé sur votre réseau local ou choisissez la saisie manuelle.",
+        "data": {
+          "selected_device": "Modules découverts"
+        }
+      },
+      "device": {
+        "title": "Poêle 4HEAT Lite",
+        "description": "Confirmez les informations de l'appareil. L'adresse IP a été détectée automatiquement.",
+        "data": {
+          "device_id": "ID de l'appareil (imprimé sur l'étiquette du module)",
+          "name": "Nom du poêle",
+          "host": "Hôte (adresse IP du module 4HEAT)",
+          "proxy_mode": "Mode proxy",
+          "module_address": "IP attendue du module"
+        },
+        "data_description": {
+          "module_address": "IP source que Home Assistant attend pour les requêtes proxy. Utilisez l'IP du routeur si le module est derrière un NAT."
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Échec de l'authentification. Vérifiez l'e-mail et le mot de passe.",
+      "cannot_connect": "Impossible de se connecter au module. Vérifiez l'IP et que le poêle est sous tension.",
+      "already_configured": "Cet appareil est déjà configuré.",
+      "device_key_failed": "Impossible de récupérer la clé de l'appareil depuis le cloud 4HEAT. Vérifiez l'ID de l'appareil."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Les modes « Cloud Keepalive » et « Local Only » nécessitent une configuration DNS/DNAT. Voir la [documentation des modes proxy]({proxy_modes_url}).",
+        "data": {
+          "proxy_mode": "Mode proxy",
+          "module_address": "IP attendue du module",
+          "schedules": "Programmes de chauffage"
+        },
+        "data_description": {
+          "module_address": "IP source que Home Assistant attend pour les requêtes proxy. Utilisez l'IP du routeur si le module est derrière un NAT."
+        }
+      }
+    },
+    "error": {
+      "invalid_schedule": "Format de programme invalide. Clés requises : eco, comfort, comfort2, slots.",
+      "invalid_temperature": "Les températures doivent être comprises entre 10,0 et 40,0.",
+      "invalid_time": "Les heures doivent être au format HH:MM, le début avant la fin.",
+      "invalid_day": "Les jours doivent être : mon, tue, wed, thu, fri, sat, sun.",
+      "overlapping_slots": "Les créneaux se chevauchent le même jour.",
+      "schedule_send_failed": "Échec de l'envoi du programme au module.",
+      "multiple_active": "Un seul programme peut être actif à la fois.",
+      "invalid_register": "Un registre comporte 6 chiffres hexadécimaux : groupe + adresse (ex. 0e038c)."
+    }
+  }
+}

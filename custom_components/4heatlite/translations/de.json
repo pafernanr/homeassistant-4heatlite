@@ -1,0 +1,66 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "4HEAT-Cloud-Anmeldung",
+        "description": "Melde dich mit deinem 4HEAT-Konto an, um den Geräteschlüssel abzurufen.",
+        "data": {
+          "email": "E-Mail",
+          "password": "Passwort"
+        }
+      },
+      "discovery": {
+        "title": "Ofenmodul suchen",
+        "description": "Wähle ein im lokalen Netzwerk gefundenes Modul oder die manuelle Eingabe.",
+        "data": {
+          "selected_device": "Gefundene Module"
+        }
+      },
+      "device": {
+        "title": "4HEAT Lite Ofen",
+        "description": "Bestätige die Gerätedaten. Die IP-Adresse wurde automatisch erkannt.",
+        "data": {
+          "device_id": "Geräte-ID (auf dem Modul-Etikett)",
+          "name": "Name des Ofens",
+          "host": "Host (IP-Adresse des 4HEAT-Moduls)",
+          "proxy_mode": "Proxy-Modus",
+          "module_address": "Erwartete Modul-IP"
+        },
+        "data_description": {
+          "module_address": "Quell-IP, von der Home Assistant Proxy-Anfragen erwartet. Bei NAT die Router-IP eintragen."
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Anmeldung fehlgeschlagen. E-Mail und Passwort prüfen.",
+      "cannot_connect": "Keine Verbindung zum Modul. IP-Adresse prüfen und ob der Ofen eingeschaltet ist.",
+      "already_configured": "Dieses Gerät ist bereits eingerichtet.",
+      "device_key_failed": "Geräteschlüssel konnte nicht aus der 4HEAT-Cloud abgerufen werden. Geräte-ID prüfen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Die Modi „Cloud Keepalive“ und „Local Only“ erfordern eine DNS-/DNAT-Einrichtung. Siehe [Dokumentation zu den Proxy-Modi]({proxy_modes_url}).",
+        "data": {
+          "proxy_mode": "Proxy-Modus",
+          "module_address": "Erwartete Modul-IP",
+          "schedules": "Heizpläne"
+        },
+        "data_description": {
+          "module_address": "Quell-IP, von der Home Assistant Proxy-Anfragen erwartet. Bei NAT die Router-IP eintragen."
+        }
+      }
+    },
+    "error": {
+      "invalid_schedule": "Ungültiges Zeitplanformat. Erforderliche Schlüssel: eco, comfort, comfort2, slots.",
+      "invalid_temperature": "Temperaturen müssen zwischen 10,0 und 40,0 liegen.",
+      "invalid_time": "Zeiten müssen im Format HH:MM angegeben werden, Start vor Ende.",
+      "invalid_day": "Erlaubte Tage: mon, tue, wed, thu, fri, sat, sun.",
+      "overlapping_slots": "Zeitfenster überschneiden sich am selben Tag.",
+      "schedule_send_failed": "Zeitplan konnte nicht an das Modul gesendet werden.",
+      "multiple_active": "Es kann nur ein Zeitplan gleichzeitig aktiv sein.",
+      "invalid_register": "Ein Register besteht aus 6 Hex-Ziffern: Gruppe + Adresse (z. B. 0e038c)."
+    }
+  }
+}
