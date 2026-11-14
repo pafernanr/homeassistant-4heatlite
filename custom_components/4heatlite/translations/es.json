@@ -2,6 +2,13 @@
   "config": {
     "step": {
       "user": {
+        "title": "Conectar la estufa",
+        "menu_options": {
+          "local": "Conexión local (sin cuenta)",
+          "cloud": "Cuenta 4HEAT (incluye modos proxy)"
+        }
+      },
+      "cloud": {
         "title": "Inicio de sesión en la nube 4HEAT",
         "description": "Inicia sesión con tu cuenta 4HEAT para obtener la clave del dispositivo.",
         "data": {
@@ -18,7 +25,7 @@
       },
       "device": {
         "title": "Estufa 4HEAT Lite",
-        "description": "Confirma los datos del dispositivo. La dirección IP se detectó automáticamente.",
+        "description": "Selecciona un módulo detectado o introduce su dirección IP o nombre de host. El ID del dispositivo es opcional para la conexión local.",
         "data": {
           "device_id": "ID del dispositivo (impreso en la etiqueta del módulo)",
           "name": "Nombre de la estufa",
@@ -36,6 +43,9 @@
       "cannot_connect": "No se puede conectar al módulo. Verifica la IP y que la estufa esté encendida.",
       "already_configured": "Este dispositivo ya está configurado.",
       "device_key_failed": "No se pudo obtener la clave del dispositivo de la nube 4HEAT. Revisa el ID del dispositivo."
+    },
+    "abort": {
+      "already_configured": "Este dispositivo ya está configurado."
     }
   },
   "options": {

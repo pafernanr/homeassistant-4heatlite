@@ -2,6 +2,13 @@
   "config": {
     "step": {
       "user": {
+        "title": "Connect your stove",
+        "menu_options": {
+          "local": "Local connection (no account)",
+          "cloud": "4HEAT account (includes proxy modes)"
+        }
+      },
+      "cloud": {
         "title": "4HEAT Cloud Login",
         "description": "Authenticate with your 4HEAT account to retrieve the device key.",
         "data": {
@@ -18,7 +25,7 @@
       },
       "device": {
         "title": "4HEAT Lite Stove",
-        "description": "Confirm the device details. The IP address was auto-detected.",
+        "description": "Select a discovered module or enter its IP address or hostname. The device ID is optional for local connections.",
         "data": {
           "device_id": "Device ID (printed on module label)",
           "name": "Stove name",
@@ -36,6 +43,9 @@
       "cannot_connect": "Cannot connect to module. Verify IP and that stove is powered on.",
       "already_configured": "This device is already configured.",
       "device_key_failed": "Could not retrieve device key from 4HEAT cloud. Check device ID."
+    },
+    "abort": {
+      "already_configured": "This device is already configured."
     }
   },
   "options": {

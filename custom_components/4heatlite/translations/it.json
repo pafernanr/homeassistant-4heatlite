@@ -2,6 +2,13 @@
   "config": {
     "step": {
       "user": {
+        "title": "Collega la stufa",
+        "menu_options": {
+          "local": "Connessione locale (senza account)",
+          "cloud": "Account 4HEAT (con modalità proxy)"
+        }
+      },
+      "cloud": {
         "title": "Accesso al cloud 4HEAT",
         "description": "Accedi con il tuo account 4HEAT per recuperare la chiave del dispositivo.",
         "data": {
@@ -18,7 +25,7 @@
       },
       "device": {
         "title": "Stufa 4HEAT Lite",
-        "description": "Conferma i dati del dispositivo. L'indirizzo IP è stato rilevato automaticamente.",
+        "description": "Seleziona un modulo rilevato o inserisci il suo indirizzo IP o nome host. Per la connessione locale l’ID del dispositivo è facoltativo.",
         "data": {
           "device_id": "ID dispositivo (stampato sull'etichetta del modulo)",
           "name": "Nome della stufa",
@@ -36,6 +43,9 @@
       "cannot_connect": "Impossibile connettersi al modulo. Verifica l'IP e che la stufa sia accesa.",
       "already_configured": "Questo dispositivo è già configurato.",
       "device_key_failed": "Impossibile recuperare la chiave del dispositivo dal cloud 4HEAT. Controlla l'ID dispositivo."
+    },
+    "abort": {
+      "already_configured": "Questo dispositivo è già configurato."
     }
   },
   "options": {

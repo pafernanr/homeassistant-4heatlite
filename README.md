@@ -61,10 +61,10 @@ With manual installation you will not receive update notifications.
 
 1. Go to Settings > Devices & Services > Add Integration
 2. Search for "4HEAT Lite Stove"
-3. Enter your 4HEAT account email and password (used once to retrieve the device key from the 4HEAT cloud)
-4. Enter the Device ID (printed on the module label), a name for your stove, and the module's IP address
-5. Select a **Proxy Mode** (Direct, Cloud Keepalive, or Local Only — see [Proxy Modes](docs/PROXY_MODES.md))
-6. The integration will verify connectivity before completing setup
+3. Choose **Local connection (no account)** for Direct mode, or **4HEAT account** to retrieve the device key and enable proxy modes.
+4. Select a discovered module or enter its IP address or hostname. Discovery fills in the Device ID for you. For manual local setup, the ID is optional. Providing it lets Home Assistant find the module again if its IP changes.
+5. Name your stove. For account setup, enter the Device ID and select a [proxy mode](docs/PROXY_MODES.md).
+6. Home Assistant checks the connection to the module before saving the entry.
 
 ### Device ID
 
@@ -73,7 +73,7 @@ The Device ID is printed on the module's label. You can also find it in the 4HEA
 ### Options
 
 After setup, go to the integration's options to change:
-- **Proxy Mode**: Direct, Cloud Keepalive, or Local Only (see [Proxy Modes](docs/PROXY_MODES.md))
+- **Proxy Mode** (account setup): Direct, Cloud Keepalive, or Local Only (see [Proxy Modes](docs/PROXY_MODES.md))
 - **Fan setting**: number entity (-7..+7 on a Ferlux, register `0e038c`)
 - **Heating Schedules**: YAML editor with multiple named schedules. Set `active: true` on one to send it to the stove. See the [schedule example](#schedule-management) below.
 

@@ -2,6 +2,13 @@
   "config": {
     "step": {
       "user": {
+        "title": "Connecter le poêle",
+        "menu_options": {
+          "local": "Connexion locale (sans compte)",
+          "cloud": "Compte 4HEAT (avec modes proxy)"
+        }
+      },
+      "cloud": {
         "title": "Connexion au cloud 4HEAT",
         "description": "Connectez-vous à votre compte 4HEAT pour récupérer la clé de l'appareil.",
         "data": {
@@ -18,7 +25,7 @@
       },
       "device": {
         "title": "Poêle 4HEAT Lite",
-        "description": "Confirmez les informations de l'appareil. L'adresse IP a été détectée automatiquement.",
+        "description": "Sélectionnez un module détecté ou saisissez son adresse IP ou son nom d’hôte. L’identifiant est facultatif pour une connexion locale.",
         "data": {
           "device_id": "ID de l'appareil (imprimé sur l'étiquette du module)",
           "name": "Nom du poêle",
@@ -36,6 +43,9 @@
       "cannot_connect": "Impossible de se connecter au module. Vérifiez l'IP et que le poêle est sous tension.",
       "already_configured": "Cet appareil est déjà configuré.",
       "device_key_failed": "Impossible de récupérer la clé de l'appareil depuis le cloud 4HEAT. Vérifiez l'ID de l'appareil."
+    },
+    "abort": {
+      "already_configured": "Cet appareil est déjà configuré."
     }
   },
   "options": {
