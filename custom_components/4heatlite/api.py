@@ -240,7 +240,8 @@ class FourHeatLiteApi:
         value, low, high = self._decode_signed(hexdata)
         if low < high:
             self.fan_setting_range = (low, high)
-        return {"fan_setting": value}
+        # the heating fan power sensor shows the panel's fan setting
+        return {"fan_setting": value, "heating_fan_power": value}
 
     def test_connection(self) -> bool:
         """Test if the module responds to a 2WC query."""

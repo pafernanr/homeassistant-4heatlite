@@ -119,7 +119,7 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
     def preset_mode(self):
         if self.coordinator.data is None:
             return None
-        power = self.coordinator.data.get("power")
+        power = self.coordinator.data.get("live_power")
         if power is not None:
             return f"Power {power}"
         return None

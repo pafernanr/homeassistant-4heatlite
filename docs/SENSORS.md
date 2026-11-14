@@ -39,7 +39,7 @@ Additional sensors parsed from the module's `POST /api/devices/store` Values arr
 | Remote Room Temperature | `remote_room_temp` | 12/ffe0 | Temp ambiente remota | Shows unavailable when 0 (no probe) |
 | Remote Room Temperature 2 | `remote_room_temp_2` | 12/ffe8 | Temp ambiente remota 2 | Shows unavailable when 0 (no probe) |
 | Airflow | `airflow` | 12/ffed | Flusso aria | Raw value (unit TBD) |
-| Heating Fan Power | `heating_fan_power` | 0e/023f | Potencia calefacción | |
+| Heating Fan Power | `heating_fan_power` | Fan register option (`0e/038c` on a Ferlux) | Potencia calefacción | |
 | Ducted Fan 1 | `ducted_fan_1` | 0e/0266 | Potencia canalizada 1 | Disabled by default |
 | Ducted Fan 2 | `ducted_fan_2` | 0e/027e | Potencia canalizada 2 | Disabled by default |
 | Cleaning Counter | `cleaning_counter` | 12/ffde | CLEANING 4WEB | Diagnostic |
@@ -65,7 +65,7 @@ Every `12` and `0e` record has the same layout: `<group + address, 3 bytes> <val
 | `120058` | Unknown | 12 | bytes 3-4, ×1 | reg_120058 |
 | `120059` | Unknown | 12 | bytes 3-4, ×1 | reg_120059 |
 | `0e016c` | Power set point (writes) | 0e | bytes 3-4, stays at max on Lasian | power |
-| `0e023f` | Heating fan power | 0e | bytes 3-4 | heating_fan_power |
+| `0e023f` | Heating fan power (not the panel setting on a Ferlux, stuck at 7) | 0e | bytes 3-4 | heating_fan_power (raw, not polled) |
 | `0e0266` | Ducted fan 1 | 0e | bytes 3-4 | ducted_fan_1 |
 | `0e027e` | Ducted fan 2 | 0e | bytes 3-4 | ducted_fan_2 |
 | `0e0231` | Unknown | 0e | bytes 3-4 | reg_0e0231 |

@@ -22,7 +22,6 @@ REGISTER_EXHAUST = "12ffff"
 QUERY_MODULE_INFO = '["2WC","1","030c81"]'
 REGISTER_MODULE_INFO = "0c81"
 FAN_REGISTERS = {
-    "heating_fan_power": "0e023f",
     "ducted_fan_1": "0e0266",
     "ducted_fan_2": "0e027e",
 }
