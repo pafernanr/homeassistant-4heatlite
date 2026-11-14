@@ -95,7 +95,7 @@ All features work via direct TCP connection to the module. Commands (ON/OFF, tem
 |---------|-----------------|-----------------|------------|
 | [Core sensors](#sensors) (state, temperatures, power, errors) | Yes | Yes | Yes |
 | [Additional sensors](#sensors) (airflow, fans, remote temps, counters) | No | Yes | Yes |
-| [Write commands](#write-commands) (ON/OFF, target temperature, power level) | Yes | Yes | Yes |
+| [Write commands](#write-commands) (ON/OFF, target temperature, combustion and heating settings) | Yes | Yes | Yes |
 | [Schedule management](#schedule-management) (weekly heating program) | Yes (TCP + queue) | Yes (TCP + queue) | Yes (TCP + queue) |
 | 4HEAT mobile app (same WiFi) | Yes | Yes | Yes |
 | 4HEAT mobile app (remote/cloud) | Yes | Yes | No |
@@ -127,7 +127,7 @@ Core sensors (TCP polling, all modes):
 - **Exhaust temperature**: exhaust gas temperature in °C
 - **Room temperature**: room temperature in °C (0.1° precision)
 - **Target temperature**: configured target room temperature in °C
-- **Power level**: current power level (1-7)
+- **Combustion Level**: running combustion level (1-7), from `0c/81`
 - **Running**: binary sensor, ON when stove is in any active state
 - **Error Active**: binary sensor, ON when an error code is present
 
@@ -147,9 +147,8 @@ Sent via [TCP direct](#tcp-direct) — instant response, no polling delay.
 
 - **ON / OFF**: start or stop the stove
 - **Target temperature**: set room target (10-40°C, 0.1°C step)
-- **Power level**: set power (1-7)
-- **Combustion** and **Heating**: number entities (1-6 manual, 7 = Auto; heating also OFF = 0) and an **Auto** switch per setting (on = Auto, off = last manual value)
-- **Fan setting**: number entity (-7..+7 on a Ferlux, register `0e038c`)
+- **Combustion** and **Heating** (Level): number entities (1-6 manual, 7 = Auto; heating also OFF = 0) and an **Auto** switch per setting (on = Auto, off = last manual value)
+- **Room Fan**: number entity (-7..+7 on a Ferlux, register `0e038c`)
 
 All write commands are available via the [climate entity](docs/SENSORS.md#climate-entity) (HVAC modes, temperature slider, power presets).
 

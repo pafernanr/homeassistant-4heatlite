@@ -64,8 +64,8 @@ Every `12` and `0e` record has the same layout: `<group + address, 3 bytes> <val
 | `12005a` | Target temp | 12 | bytes 3-4, temp unit | target_temp |
 | `120058` | Unknown | 12 | bytes 3-4, ×1 | reg_120058 |
 | `120059` | Unknown | 12 | bytes 3-4, ×1 | reg_120059 |
-| `0e016c` | Power set point (writes) | 0e | bytes 3-4, stays at max on Lasian | power |
-| `0e023f` | Heating fan power (not the panel setting on a Ferlux, stuck at 7) | 0e | bytes 3-4 | heating_fan_power (raw, not polled) |
+| `0e016c` | Combustion setting (1-6 manual, 7 = Auto). Writes; reads the setting, not the live output | 0e | bytes 3-4 | power |
+| `0e023f` | Heating setting (OFF = 0, 1-6 manual, 7 = Auto). Writable | 0e | bytes 3-4 | heating_setting (Heating Level, Heating Auto) |
 | `0e0266` | Ducted fan 1 | 0e | bytes 3-4 | ducted_fan_1 |
 | `0e027e` | Ducted fan 2 | 0e | bytes 3-4 | ducted_fan_2 |
 | `0e0231` | Unknown | 0e | bytes 3-4 | reg_0e0231 |
@@ -172,15 +172,25 @@ The short frame `0512005a0019000a00280000` (from issue #2) is echoed by the modu
 
 The module answers with the updated register, e.g. `["2WC","1","12005a0019000a0028..."]`. A reply carrying the whole register cache holds the old value, so only a single-record reply is published as the new state.
 
-### Fan setting
+### Room fan setting
 
-On a Ferlux (product `SYEVO0000559`) the fan setting of the panel is not the register the 4HEAT filemap declares for the heating fan. `0e/023f` never moved when the panel's fan changed, and the 4HEAT app, which writes there, could not change it either. The panel's setting is `0e/038c`, an offset from -7 to +7 on the speed the board picks:
+The room fan setting of the panel is the register `0e/038c`, an offset from -7 to +7 on the speed the board picks. `0e/023f` is the heating setting, not the room fan (it reads 7 in Auto):
 ```
 0e038c 0005 fff9 0007 00000001038c0000      +5, min -7, max +7
 ```
 Values are two's complement (`fff9` = -7). Writing the whole record with the value replaced changed the panel (+5 → +2).
 
-The fan number entity (-7..+7) is always created on `0e/038c`, with the range the record reports. It only appears when that register reads. To look for the register on another stove, read the `0e` group one address at a time (`["2WC","1","030e<address>"]`, read-only), change the fan on the panel, read again and compare.
+The **Room Fan** number entity (-7..+7) is always created on `0e/038c`, with the range the record reports. It only appears when that register reads.
+
+### Combustion and heating settings
+
+- `0e/016c` (Combustion) and `0e/023f` (Heating): 7 = Auto. Heating OFF = 0. Manual steps 1-6.
+- Sliders stop at 6 and are unavailable while the value is 7.
+- The **Auto** switch per setting: on writes 7, off restores the last manual value.
+- Verified: both registers write and read back; combustion and heating were restored to the original values after testing.
+- The **Combustion Level** sensor (`0c/0081`) is the live output. It follows `0e/016c` while the stove runs and reads 0 when off. It does not follow `0e/023f`. No live heating output is mapped yet.
+
+To look for a register on another stove, read the `0e` group one address at a time (`["2WC","1","030e<address>"]`, read-only), change the setting on the panel, read again and compare.
 
 ### Temperature unit
 

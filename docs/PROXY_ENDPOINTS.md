@@ -432,8 +432,9 @@ The `Values` array in `/store` contains hex-encoded register data. Each string i
 |--------|----------|---------------|----------|
 | `10` (38 chars) | 0310 — main sensors | state, error, exhaust_temp, room_temp, on_off | See [register map](SENSORS.md#register-map-0310-response) |
 | `12005a` | Target temp | target_temp | bytes 3-4, big-endian, /10 = °C |
-| `0e016c` | Power set point | power | bytes 3-4, big-endian |
-| `0c81` | Running power level | live_power | byte 3, ASCII digit (`liv_pot`) |
+| `0e016c` | Combustion setting (1-6 manual, 7 = Auto) | power | bytes 3-4, big-endian |
+| `0e023f` | Heating setting (OFF = 0, 1-6 manual, 7 = Auto) | heating_setting | bytes 3-4, big-endian |
+| `0c81` | Combustion live value (running) | live_power | byte 3, ASCII digit (`liv_pot`) |
 
 ## Device Lookup
 
