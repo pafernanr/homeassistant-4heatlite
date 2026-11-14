@@ -1,6 +1,7 @@
 {
   "domain": "4heatlite",
   "name": "4HEAT Lite Stove",
+  "categories": ["climate.thermostats_heating"],
   "codeowners": ["@pafernanr"],
   "config_flow": true,
   "dependencies": ["http"],
