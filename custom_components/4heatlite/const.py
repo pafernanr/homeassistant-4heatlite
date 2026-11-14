@@ -119,7 +119,6 @@ STORE_REGISTERS = {
     "120058": {"key": "reg_120058", "group": "12", "scale": 1},
     "120059": {"key": "reg_120059", "group": "12", "scale": 1},
     "0e016c": {"key": "power", "group": "0e"},
-    "0e023f": {"key": "heating_fan_power", "group": "0e"},
     "0e0266": {"key": "ducted_fan_1", "group": "0e"},
     "0e027e": {"key": "ducted_fan_2", "group": "0e"},
     "0e0231": {"key": "reg_0e0231", "group": "0e"},
