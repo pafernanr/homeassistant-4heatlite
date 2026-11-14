@@ -162,7 +162,7 @@ class PowerLevelSensor(FourHeatLiteEntity, SensorEntity):
 
     def __init__(self, coordinator, stove_name):
         super().__init__(coordinator, stove_name)
-        self._attr_name = f"{stove_name} Power Level"
+        self._attr_name = f"{stove_name} Combustion Level"
         self._attr_unique_id = f"{stove_name}_power_level"
 
     @property

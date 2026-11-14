@@ -9,7 +9,7 @@
 | Exhaust Temperature | Exhaust gas temperature in °C | TCP poll (0310 byte 4) |
 | Room Temperature | Room temperature in °C (0.1° precision) | TCP poll (0310 bytes 10-11) |
 | Target Temperature | Configured target room temperature in °C | TCP poll (12/005a register) |
-| Power Level | Running power level (1-7), from state_info (0c/81 `liv_pot`) | TCP poll (0c/81 register) |
+| Combustion Level | Running combustion level (1-7), from state_info (0c/81 `liv_pot`) | TCP poll (0c/81 register) |
 
 ## Binary Sensor Entities
 
@@ -69,7 +69,7 @@ Every `12` and `0e` record has the same layout: `<group + address, 3 bytes> <val
 | `0e0266` | Ducted fan 1 | 0e | bytes 3-4 | ducted_fan_1 |
 | `0e027e` | Ducted fan 2 | 0e | bytes 3-4 | ducted_fan_2 |
 | `0e0231` | Unknown | 0e | bytes 3-4 | reg_0e0231 |
-| `0c81` | State info: running power level | 0c | byte 3, ASCII digit (`liv_pot`) | live_power (Power Level sensor), module_info (raw) |
+| `0c81` | State info: running power level | 0c | byte 3, ASCII digit (`liv_pot`) | live_power (Combustion Level sensor), module_info (raw) |
 
 ## How Sensors Are Updated
 

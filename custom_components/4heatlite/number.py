@@ -105,7 +105,7 @@ class FanSettingNumber(SettingNumber):
     _range_attr = "fan_setting_range"
     _command_attr = "build_fan_setting_command"
     _default_range = (-7, 7)
-    _label = "Fan"
+    _label = "Room Fan"
     _unique_suffix = "fan_setting"
 
 
@@ -117,7 +117,7 @@ class CombustionSettingNumber(SettingNumber):
     _range_attr = "power_range"
     _command_attr = "build_power_command"
     _default_range = (1, 7)
-    _label = "Combustion"
+    _label = "Combustion Level"
     _unique_suffix = "combustion_setting"
     _has_auto = True
 
@@ -130,6 +130,6 @@ class HeatingSettingNumber(SettingNumber):
     _range_attr = "heating_setting_range"
     _command_attr = "build_heating_setting_command"
     _default_range = (0, 7)
-    _label = "Heating"
+    _label = "Heating Level"
     _unique_suffix = "heating_setting"
     _has_auto = True
