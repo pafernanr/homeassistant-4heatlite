@@ -62,5 +62,116 @@
       "multiple_active": "È possibile avere un solo programma attivo alla volta.",
       "invalid_register": "Un registro è composto da 6 cifre esadecimali: gruppo + indirizzo (es. 0e038c)."
     }
+  },
+  "entity": {
+    "climate": {
+      "climate": {
+        "name": "Clima"
+      }
+    },
+    "binary_sensor": {
+      "running": {
+        "name": "In funzione"
+      },
+      "error_active": {
+        "name": "Allarme attivo"
+      }
+    },
+    "sensor": {
+      "operating_state": {
+        "name": "Stato",
+        "state": {
+          "off": "Spenta",
+          "check_up": "Controllo",
+          "ignition": "Accensione",
+          "stabilization": "Stabilizzazione",
+          "run": "Funzionamento",
+          "modulation": "Modulazione",
+          "extinguishing": "Spegnimento",
+          "safety": "Sicurezza",
+          "block": "Bloccata",
+          "recover_ignition": "Riaccensione",
+          "standby": "Standby",
+          "run_m": "Funzionamento M",
+          "unknown": "Sconosciuto"
+        }
+      },
+      "error": {
+        "name": "Errore",
+        "state": {
+          "none": "Nessuno",
+          "safety_thermostat_hv1": "Termostato di sicurezza HV1",
+          "safety_pressure_switch_hv2": "Pressostato di sicurezza HV2",
+          "exhaust_temp_lowering": "Calo temperatura fumi",
+          "water_over_temperature": "Sovratemperatura acqua",
+          "exhaust_over_temperature": "Sovratemperatura fumi",
+          "unknown": "Sconosciuto",
+          "encoder_no_signal": "Encoder: nessun segnale",
+          "encoder_fan_regulation_failed": "Encoder: regolazione ventilatore fallita",
+          "low_boiler_pressure": "Pressione caldaia bassa",
+          "high_boiler_pressure": "Pressione caldaia alta",
+          "clock_reset": "Orologio resettato (mancanza di corrente)",
+          "failed_ignition": "Accensione fallita",
+          "ignition_error": "Errore di accensione",
+          "lack_of_voltage": "Mancanza di tensione",
+          "door_error": "Errore porta"
+        }
+      },
+      "exhaust_temperature": {
+        "name": "Temperatura fumi"
+      },
+      "room_temperature": {
+        "name": "Temperatura ambiente"
+      },
+      "target_temperature": {
+        "name": "Temperatura impostata"
+      },
+      "power_level": {
+        "name": "Livello di combustione"
+      },
+      "remote_room_temp": {
+        "name": "Temperatura ambiente remota"
+      },
+      "remote_room_temp_2": {
+        "name": "Temperatura ambiente remota 2"
+      },
+      "airflow": {
+        "name": "Flusso d'aria"
+      },
+      "heating_fan_power": {
+        "name": "Potenza ventilatore riscaldamento"
+      },
+      "ducted_fan_1": {
+        "name": "Ventilatore canalizzato 1"
+      },
+      "ducted_fan_2": {
+        "name": "Ventilatore canalizzato 2"
+      },
+      "cleaning_counter": {
+        "name": "Contatore pulizia"
+      },
+      "service_counter": {
+        "name": "Contatore manutenzione"
+      }
+    },
+    "number": {
+      "fan_setting": {
+        "name": "Ventilatore ambiente"
+      },
+      "combustion_setting": {
+        "name": "Livello di combustione"
+      },
+      "heating_setting": {
+        "name": "Livello riscaldamento"
+      }
+    },
+    "switch": {
+      "combustion_auto": {
+        "name": "Combustione automatica"
+      },
+      "heating_auto": {
+        "name": "Riscaldamento automatico"
+      }
+    }
   }
 }

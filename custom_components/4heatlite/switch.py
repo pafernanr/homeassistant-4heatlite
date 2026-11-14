@@ -25,11 +25,11 @@ async def async_setup_entry(
     async_add_entities(
         [
             AutoSwitch(
-                coordinator, stove_name, "Combustion", "power",
+                coordinator, stove_name, "combustion_auto", "power",
                 "build_power_command", "combustion_auto",
             ),
             AutoSwitch(
-                coordinator, stove_name, "Heating", "heating_setting",
+                coordinator, stove_name, "heating_auto", "heating_setting",
                 "build_heating_setting_command", "heating_auto",
             ),
         ]
@@ -42,12 +42,12 @@ class AutoSwitch(FourHeatLiteEntity, SwitchEntity):
     _attr_icon = "mdi:refresh-auto"
 
     def __init__(
-        self, coordinator, stove_name, label, data_key, command_attr, unique_suffix
+        self, coordinator, stove_name, translation_key, data_key, command_attr, unique_suffix
     ):
         super().__init__(coordinator, stove_name)
         self._data_key = data_key
         self._command_attr = command_attr
-        self._attr_name = f"{stove_name} {label} Auto"
+        self._attr_translation_key = translation_key
         self._attr_unique_id = f"{stove_name}_{unique_suffix}"
         self._last_manual = AUTO_MANUAL_MAX
 
@@ -81,13 +81,13 @@ class AutoSwitch(FourHeatLiteEntity, SwitchEntity):
     async def _send(self, value: int) -> None:
         cmd = getattr(self.coordinator.api, self._command_attr)(value)
         if cmd is None:
-            _LOGGER.warning("%s not read yet: set %s", self._attr_name, value)
+            _LOGGER.warning("%s not read yet: set %s", self._attr_translation_key, value)
             return
         result = await self.hass.async_add_executor_job(
             self.coordinator.api.send_command, cmd
         )
         if result is None:
-            _LOGGER.warning("TCP command failed: %s %s", self._attr_name, value)
+            _LOGGER.warning("TCP command failed: %s %s", self._attr_translation_key, value)
             return
         if not self.coordinator.apply_echo(result):
             await self.coordinator.async_request_refresh()

@@ -35,6 +35,7 @@ async def async_setup_entry(
 
 
 class StoveClimate(CoordinatorEntity, ClimateEntity):
+    _attr_has_entity_name = True
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
     _attr_supported_features = (
@@ -47,7 +48,7 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
     def __init__(self, coordinator: FourHeatLiteCoordinator, stove_name: str):
         super().__init__(coordinator)
         self._stove_name = stove_name
-        self._attr_name = f"{stove_name} Climate"
+        self._attr_translation_key = "climate"
         self._attr_unique_id = f"{stove_name}_climate"
 
     @property

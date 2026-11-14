@@ -95,7 +95,7 @@ The 19-byte response contains the stove state, error code, exhaust temperature, 
 | Byte(s) | Field | Unit | Notes |
 |---------|-------|------|-------|
 | 0 | Header | - | Always 0x10 |
-| 1 | Error | enum | See `ERROR_NAMES` in const.py |
+| 1 | Error | enum | See `ERROR_KEYS` in const.py |
 | 2 | On/Off | flag | 0=off, 1=on (stays 1 during cooldown) |
 | 3 | Unknown | - | |
 | 4 | Exhaust temp | °C | 1-byte unsigned; always 0 on some stoves, 12/ffff is used instead |

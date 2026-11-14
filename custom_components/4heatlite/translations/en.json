@@ -62,5 +62,116 @@
       "multiple_active": "Only one schedule can be active at a time.",
       "invalid_register": "A register is 6 hex digits, group + address (e.g. 0e038c)."
     }
+  },
+  "entity": {
+    "climate": {
+      "climate": {
+        "name": "Climate"
+      }
+    },
+    "binary_sensor": {
+      "running": {
+        "name": "Running"
+      },
+      "error_active": {
+        "name": "Error Active"
+      }
+    },
+    "sensor": {
+      "operating_state": {
+        "name": "State",
+        "state": {
+          "off": "OFF",
+          "check_up": "Check Up",
+          "ignition": "Ignition",
+          "stabilization": "Stabilization",
+          "run": "Run",
+          "modulation": "Modulation",
+          "extinguishing": "Extinguishing",
+          "safety": "Safety",
+          "block": "Block",
+          "recover_ignition": "Recover Ignition",
+          "standby": "Standby",
+          "run_m": "Run M",
+          "unknown": "Unknown"
+        }
+      },
+      "error": {
+        "name": "Error",
+        "state": {
+          "none": "None",
+          "safety_thermostat_hv1": "Safety Thermostat HV1",
+          "safety_pressure_switch_hv2": "Safety PressureSwitch HV2",
+          "exhaust_temp_lowering": "Exhaust Temp lowering",
+          "water_over_temperature": "Water over Temperature",
+          "exhaust_over_temperature": "Exhaust over Temperature",
+          "unknown": "Unknown",
+          "encoder_no_signal": "Encoder: No Signal",
+          "encoder_fan_regulation_failed": "Encoder: Fan regulation failed",
+          "low_boiler_pressure": "Low boiler pressure",
+          "high_boiler_pressure": "High boiler pressure",
+          "clock_reset": "Clock reset (power loss)",
+          "failed_ignition": "Failed Ignition",
+          "ignition_error": "Ignition error",
+          "lack_of_voltage": "Lack of Voltage",
+          "door_error": "Door error"
+        }
+      },
+      "exhaust_temperature": {
+        "name": "Exhaust Temperature"
+      },
+      "room_temperature": {
+        "name": "Room Temperature"
+      },
+      "target_temperature": {
+        "name": "Target Temperature"
+      },
+      "power_level": {
+        "name": "Combustion Level"
+      },
+      "remote_room_temp": {
+        "name": "Remote Room Temperature"
+      },
+      "remote_room_temp_2": {
+        "name": "Remote Room Temperature 2"
+      },
+      "airflow": {
+        "name": "Airflow"
+      },
+      "heating_fan_power": {
+        "name": "Room Fan Power"
+      },
+      "ducted_fan_1": {
+        "name": "Ducted Fan 1"
+      },
+      "ducted_fan_2": {
+        "name": "Ducted Fan 2"
+      },
+      "cleaning_counter": {
+        "name": "Cleaning Counter"
+      },
+      "service_counter": {
+        "name": "Service Counter"
+      }
+    },
+    "number": {
+      "fan_setting": {
+        "name": "Room Fan"
+      },
+      "combustion_setting": {
+        "name": "Combustion Level"
+      },
+      "heating_setting": {
+        "name": "Heating Level"
+      }
+    },
+    "switch": {
+      "combustion_auto": {
+        "name": "Combustion Auto"
+      },
+      "heating_auto": {
+        "name": "Heating Auto"
+      }
+    }
   }
 }

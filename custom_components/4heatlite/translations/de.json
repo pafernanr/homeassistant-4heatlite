@@ -62,5 +62,116 @@
       "multiple_active": "Es kann nur ein Zeitplan gleichzeitig aktiv sein.",
       "invalid_register": "Ein Register besteht aus 6 Hex-Ziffern: Gruppe + Adresse (z. B. 0e038c)."
     }
+  },
+  "entity": {
+    "climate": {
+      "climate": {
+        "name": "Klima"
+      }
+    },
+    "binary_sensor": {
+      "running": {
+        "name": "In Betrieb"
+      },
+      "error_active": {
+        "name": "Störung"
+      }
+    },
+    "sensor": {
+      "operating_state": {
+        "name": "Betriebszustand",
+        "state": {
+          "off": "Aus",
+          "check_up": "Prüfung",
+          "ignition": "Zündung",
+          "stabilization": "Stabilisierung",
+          "run": "Betrieb",
+          "modulation": "Modulation",
+          "extinguishing": "Ausbrennen",
+          "safety": "Sicherheitsabschaltung",
+          "block": "Gesperrt",
+          "recover_ignition": "Neuzündung",
+          "standby": "Standby",
+          "run_m": "Betrieb M",
+          "unknown": "Unbekannt"
+        }
+      },
+      "error": {
+        "name": "Fehler",
+        "state": {
+          "none": "Keiner",
+          "safety_thermostat_hv1": "Sicherheitsthermostat HV1",
+          "safety_pressure_switch_hv2": "Sicherheitsdruckschalter HV2",
+          "exhaust_temp_lowering": "Abgastemperatur sinkt",
+          "water_over_temperature": "Wasser-Übertemperatur",
+          "exhaust_over_temperature": "Abgas-Übertemperatur",
+          "unknown": "Unbekannt",
+          "encoder_no_signal": "Encoder: kein Signal",
+          "encoder_fan_regulation_failed": "Encoder: Lüfterregelung fehlgeschlagen",
+          "low_boiler_pressure": "Kesseldruck zu niedrig",
+          "high_boiler_pressure": "Kesseldruck zu hoch",
+          "clock_reset": "Uhr zurückgesetzt (Stromausfall)",
+          "failed_ignition": "Zündung fehlgeschlagen",
+          "ignition_error": "Zündfehler",
+          "lack_of_voltage": "Unterspannung",
+          "door_error": "Tür offen / Türfehler"
+        }
+      },
+      "exhaust_temperature": {
+        "name": "Abgastemperatur"
+      },
+      "room_temperature": {
+        "name": "Raumtemperatur"
+      },
+      "target_temperature": {
+        "name": "Solltemperatur"
+      },
+      "power_level": {
+        "name": "Verbrennungsstufe"
+      },
+      "remote_room_temp": {
+        "name": "Raumtemperatur Fernfühler"
+      },
+      "remote_room_temp_2": {
+        "name": "Raumtemperatur Fernfühler 2"
+      },
+      "airflow": {
+        "name": "Luftdurchsatz"
+      },
+      "heating_fan_power": {
+        "name": "Gebläse Heizen"
+      },
+      "ducted_fan_1": {
+        "name": "Kanalgebläse 1"
+      },
+      "ducted_fan_2": {
+        "name": "Kanalgebläse 2"
+      },
+      "cleaning_counter": {
+        "name": "Reinigungszähler"
+      },
+      "service_counter": {
+        "name": "Wartungszähler"
+      }
+    },
+    "number": {
+      "fan_setting": {
+        "name": "Raumlüfter"
+      },
+      "combustion_setting": {
+        "name": "Verbrennungsstufe"
+      },
+      "heating_setting": {
+        "name": "Heizstufe"
+      }
+    },
+    "switch": {
+      "combustion_auto": {
+        "name": "Verbrennung Auto"
+      },
+      "heating_auto": {
+        "name": "Heizung Auto"
+      }
+    }
   }
 }

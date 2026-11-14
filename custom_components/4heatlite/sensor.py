@@ -14,7 +14,13 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DATA_COORDINATOR, DOMAIN, ERROR_NAMES, STATE_NAMES
+from .const import (
+    DATA_COORDINATOR,
+    DOMAIN,
+    ERROR_KEYS,
+    STATE_KEYS,
+    UNKNOWN_KEY,
+)
 from .coordinator import FourHeatLiteCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -46,6 +52,8 @@ async def async_setup_entry(
 class FourHeatLiteEntity(CoordinatorEntity):
     """Base entity for 4HEAT Lite."""
 
+    _attr_has_entity_name = True
+
     def __init__(self, coordinator: FourHeatLiteCoordinator, stove_name: str) -> None:
         super().__init__(coordinator)
         self._stove_name = stove_name
@@ -62,10 +70,12 @@ class FourHeatLiteEntity(CoordinatorEntity):
 
 class StoveStateSensor(FourHeatLiteEntity, SensorEntity):
     _attr_icon = "mdi:fire"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = sorted({*STATE_KEYS.values(), UNKNOWN_KEY})
+    _attr_translation_key = "operating_state"
 
     def __init__(self, coordinator, stove_name):
         super().__init__(coordinator, stove_name)
-        self._attr_name = f"{stove_name} State"
         self._attr_unique_id = f"{stove_name}_state"
 
     @property
@@ -73,7 +83,7 @@ class StoveStateSensor(FourHeatLiteEntity, SensorEntity):
         if self.coordinator.data is None:
             return None
         state = self.coordinator.data["state"]
-        return STATE_NAMES.get(state, f"Unknown ({state})")
+        return STATE_KEYS.get(state, UNKNOWN_KEY)
 
     @property
     def extra_state_attributes(self):
@@ -84,10 +94,12 @@ class StoveStateSensor(FourHeatLiteEntity, SensorEntity):
 
 class StoveErrorSensor(FourHeatLiteEntity, SensorEntity):
     _attr_icon = "mdi:alert-circle-outline"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = sorted({*ERROR_KEYS.values(), UNKNOWN_KEY})
+    _attr_translation_key = "error"
 
     def __init__(self, coordinator, stove_name):
         super().__init__(coordinator, stove_name)
-        self._attr_name = f"{stove_name} Error"
         self._attr_unique_id = f"{stove_name}_error"
 
     @property
@@ -95,7 +107,7 @@ class StoveErrorSensor(FourHeatLiteEntity, SensorEntity):
         if self.coordinator.data is None:
             return None
         error = self.coordinator.data["error"]
-        return ERROR_NAMES.get(error, f"Unknown ({error})")
+        return ERROR_KEYS.get(error, UNKNOWN_KEY)
 
     @property
     def extra_state_attributes(self):
@@ -111,7 +123,7 @@ class ExhaustTemperatureSensor(FourHeatLiteEntity, SensorEntity):
 
     def __init__(self, coordinator, stove_name):
         super().__init__(coordinator, stove_name)
-        self._attr_name = f"{stove_name} Exhaust Temperature"
+        self._attr_translation_key = "exhaust_temperature"
         self._attr_unique_id = f"{stove_name}_exhaust_temp"
 
     @property
@@ -129,7 +141,7 @@ class RoomTemperatureSensor(FourHeatLiteEntity, SensorEntity):
 
     def __init__(self, coordinator, stove_name):
         super().__init__(coordinator, stove_name)
-        self._attr_name = f"{stove_name} Room Temperature"
+        self._attr_translation_key = "room_temperature"
         self._attr_unique_id = f"{stove_name}_room_temp"
 
     @property
@@ -147,7 +159,7 @@ class TargetTemperatureSensor(FourHeatLiteEntity, SensorEntity):
 
     def __init__(self, coordinator, stove_name):
         super().__init__(coordinator, stove_name)
-        self._attr_name = f"{stove_name} Target Temperature"
+        self._attr_translation_key = "target_temperature"
         self._attr_unique_id = f"{stove_name}_target_temp"
 
     @property
@@ -162,7 +174,7 @@ class PowerLevelSensor(FourHeatLiteEntity, SensorEntity):
 
     def __init__(self, coordinator, stove_name):
         super().__init__(coordinator, stove_name)
-        self._attr_name = f"{stove_name} Combustion Level"
+        self._attr_translation_key = "power_level"
         self._attr_unique_id = f"{stove_name}_power_level"
 
     @property
@@ -175,7 +187,6 @@ class PowerLevelSensor(FourHeatLiteEntity, SensorEntity):
 REGISTER_SENSOR_DEFS = [
     {
         "key": "remote_room_temp",
-        "name": "Remote Room Temperature",
         "device_class": SensorDeviceClass.TEMPERATURE,
         "unit": UnitOfTemperature.CELSIUS,
         "state_class": SensorStateClass.MEASUREMENT,
@@ -184,7 +195,6 @@ REGISTER_SENSOR_DEFS = [
     },
     {
         "key": "remote_room_temp_2",
-        "name": "Remote Room Temperature 2",
         "device_class": SensorDeviceClass.TEMPERATURE,
         "unit": UnitOfTemperature.CELSIUS,
         "state_class": SensorStateClass.MEASUREMENT,
@@ -193,19 +203,16 @@ REGISTER_SENSOR_DEFS = [
     },
     {
         "key": "airflow",
-        "name": "Airflow",
         "icon": "mdi:fan",
         "state_class": SensorStateClass.MEASUREMENT,
     },
     {
         "key": "heating_fan_power",
-        "name": "Room Fan Power",
         "icon": "mdi:fan",
         "state_class": SensorStateClass.MEASUREMENT,
     },
     {
         "key": "ducted_fan_1",
-        "name": "Ducted Fan 1",
         "icon": "mdi:fan",
         "state_class": SensorStateClass.MEASUREMENT,
         "enabled_default": False,
@@ -213,7 +220,6 @@ REGISTER_SENSOR_DEFS = [
     },
     {
         "key": "ducted_fan_2",
-        "name": "Ducted Fan 2",
         "icon": "mdi:fan",
         "state_class": SensorStateClass.MEASUREMENT,
         "enabled_default": False,
@@ -221,14 +227,12 @@ REGISTER_SENSOR_DEFS = [
     },
     {
         "key": "cleaning_counter",
-        "name": "Cleaning Counter",
         "icon": "mdi:broom",
         "state_class": SensorStateClass.TOTAL_INCREASING,
         "entity_category": EntityCategory.DIAGNOSTIC,
     },
     {
         "key": "service_counter",
-        "name": "Service Counter",
         "icon": "mdi:wrench",
         "state_class": SensorStateClass.TOTAL_INCREASING,
         "entity_category": EntityCategory.DIAGNOSTIC,
@@ -244,7 +248,7 @@ class RegisterSensor(FourHeatLiteEntity, SensorEntity):
         super().__init__(coordinator, stove_name)
         self._data_key = definition["key"]
         self._zero_means_absent = definition.get("zero_means_absent", False)
-        self._attr_name = f"{stove_name} {definition['name']}"
+        self._attr_translation_key = definition["key"]
         self._attr_unique_id = f"{stove_name}_{definition['key']}"
         if definition.get("device_class"):
             self._attr_device_class = definition["device_class"]

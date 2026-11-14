@@ -29,12 +29,13 @@ async def async_setup_entry(
 
 class StoveRunningSensor(CoordinatorEntity, BinarySensorEntity):
     _attr_device_class = BinarySensorDeviceClass.RUNNING
+    _attr_has_entity_name = True
+    _attr_translation_key = "running"
     _attr_icon = "mdi:fire"
 
     def __init__(self, coordinator, stove_name):
         super().__init__(coordinator)
         self._stove_name = stove_name
-        self._attr_name = f"{stove_name} Running"
         self._attr_unique_id = f"{stove_name}_running"
 
     @property
@@ -55,12 +56,13 @@ class StoveRunningSensor(CoordinatorEntity, BinarySensorEntity):
 
 class StoveErrorActiveSensor(CoordinatorEntity, BinarySensorEntity):
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_has_entity_name = True
+    _attr_translation_key = "error_active"
     _attr_icon = "mdi:alert-circle"
 
     def __init__(self, coordinator, stove_name):
         super().__init__(coordinator)
         self._stove_name = stove_name
-        self._attr_name = f"{stove_name} Error Active"
         self._attr_unique_id = f"{stove_name}_error_active"
 
     @property

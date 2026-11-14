@@ -62,5 +62,116 @@
       "multiple_active": "Un seul programme peut être actif à la fois.",
       "invalid_register": "Un registre comporte 6 chiffres hexadécimaux : groupe + adresse (ex. 0e038c)."
     }
+  },
+  "entity": {
+    "climate": {
+      "climate": {
+        "name": "Climat"
+      }
+    },
+    "binary_sensor": {
+      "running": {
+        "name": "En marche"
+      },
+      "error_active": {
+        "name": "Défaut actif"
+      }
+    },
+    "sensor": {
+      "operating_state": {
+        "name": "État",
+        "state": {
+          "off": "Arrêt",
+          "check_up": "Contrôle",
+          "ignition": "Allumage",
+          "stabilization": "Stabilisation",
+          "run": "Marche",
+          "modulation": "Modulation",
+          "extinguishing": "Extinction",
+          "safety": "Sécurité",
+          "block": "Bloqué",
+          "recover_ignition": "Réallumage",
+          "standby": "Veille",
+          "run_m": "Marche M",
+          "unknown": "Inconnu"
+        }
+      },
+      "error": {
+        "name": "Erreur",
+        "state": {
+          "none": "Aucune",
+          "safety_thermostat_hv1": "Thermostat de sécurité HV1",
+          "safety_pressure_switch_hv2": "Pressostat de sécurité HV2",
+          "exhaust_temp_lowering": "Baisse de température des fumées",
+          "water_over_temperature": "Surchauffe de l'eau",
+          "exhaust_over_temperature": "Surchauffe des fumées",
+          "unknown": "Inconnue",
+          "encoder_no_signal": "Encodeur : pas de signal",
+          "encoder_fan_regulation_failed": "Encodeur : échec de régulation du ventilateur",
+          "low_boiler_pressure": "Pression de chaudière basse",
+          "high_boiler_pressure": "Pression de chaudière haute",
+          "clock_reset": "Horloge réinitialisée (coupure)",
+          "failed_ignition": "Échec d'allumage",
+          "ignition_error": "Erreur d'allumage",
+          "lack_of_voltage": "Sous-tension",
+          "door_error": "Erreur de porte"
+        }
+      },
+      "exhaust_temperature": {
+        "name": "Température des fumées"
+      },
+      "room_temperature": {
+        "name": "Température ambiante"
+      },
+      "target_temperature": {
+        "name": "Température de consigne"
+      },
+      "power_level": {
+        "name": "Niveau de combustion"
+      },
+      "remote_room_temp": {
+        "name": "Température ambiante distante"
+      },
+      "remote_room_temp_2": {
+        "name": "Température ambiante distante 2"
+      },
+      "airflow": {
+        "name": "Débit d'air"
+      },
+      "heating_fan_power": {
+        "name": "Puissance ventilateur chauffage"
+      },
+      "ducted_fan_1": {
+        "name": "Ventilateur gainé 1"
+      },
+      "ducted_fan_2": {
+        "name": "Ventilateur gainé 2"
+      },
+      "cleaning_counter": {
+        "name": "Compteur de nettoyage"
+      },
+      "service_counter": {
+        "name": "Compteur d'entretien"
+      }
+    },
+    "number": {
+      "fan_setting": {
+        "name": "Ventilateur pièce"
+      },
+      "combustion_setting": {
+        "name": "Niveau de combustion"
+      },
+      "heating_setting": {
+        "name": "Niveau de chauffage"
+      }
+    },
+    "switch": {
+      "combustion_auto": {
+        "name": "Combustion auto"
+      },
+      "heating_auto": {
+        "name": "Chauffage auto"
+      }
+    }
   }
 }
