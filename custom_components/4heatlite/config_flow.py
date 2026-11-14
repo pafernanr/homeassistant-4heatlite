@@ -144,6 +144,8 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors["base"] = "device_key_failed"
 
             if not errors:
+                await self.async_set_unique_id(device_id)
+                self._abort_if_unique_id_configured()
                 proxy_mode = user_input.get(
                     CONF_PROXY_MODE, PROXY_MODE_DIRECT
                 )
