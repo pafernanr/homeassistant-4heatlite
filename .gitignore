@@ -5,3 +5,8 @@ __pycache__/
 secrets/
 tools/
 .claude/
+.cursor/
+.windsurf/
+.clinerules/
+.opencode/
+AGENTS.md
