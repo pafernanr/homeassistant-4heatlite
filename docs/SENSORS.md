@@ -205,6 +205,6 @@ The unit applies to the room temperature (0310 bytes 10-11, 12/fff7), the remote
 
 ### Module quirks
 
-- **Busy answer**: the module sometimes replies `["ERR","1","4"]`. Queries are retried twice, 1.5 s apart, and the last data is kept for two failed polls before the entities go unavailable.
+- **Busy answer**: the module sometimes replies `["ERR","1","4"]`. Every query is retried twice, 1.5 s apart. Each group of registers (config, fans, fan setting, heating setting, live power) keeps its last values for two failed polls. After that its entities show Unknown until the module answers again. The sensor block keeps its last data the same way and makes the device unavailable only after that.
 - **Whole cache**: a single-register read can come back with the whole register cache (`["2WC","1","1000…","0c81…","12ffff…",…]`). The record that starts with the requested register is picked out of it.
 - **One client at a time**: TCP exchanges with the module are serialized inside the integration.

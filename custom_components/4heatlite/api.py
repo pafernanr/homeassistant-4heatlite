@@ -174,85 +174,87 @@ class FourHeatLiteApi:
         """Query target temp (12/005a) and power (0e/016c).
 
         The target register's range also gives the stove's temperature unit:
-        100-400 on 0.1 °C stoves, 10-40 on whole-degree ones.
+        100-400 on 0.1 °C stoves, 10-40 on whole-degree ones. None if either
+        register did not answer.
         """
-        result = {}
-        hexdata = self._query(
+        target = self._query(
             QUERY_CONFIG["target_temp"], min_hex_len=18, register=REGISTER_TEMP
         )
-        if hexdata:
-            value, low, high = self._decode_register(hexdata)
-            if high:
-                self.temp_divisor = 1 if high <= WHOLE_DEGREE_MAX_RAW else 10
-                self.temp_range = (low, high)
-            result["target_temp"] = value / self.temp_divisor
-
-        hexdata = self._query(
+        power = self._query(
             QUERY_CONFIG["power"], min_hex_len=18, register=REGISTER_POWER
         )
-        if hexdata:
-            value, low, high = self._decode_register(hexdata)
-            if high:
-                self.power_range = (low, high)
-            result["power"] = value
+        if not target or not power:
+            return None
+        result = {}
+        value, low, high = self._decode_register(target)
+        if high:
+            self.temp_divisor = 1 if high <= WHOLE_DEGREE_MAX_RAW else 10
+            self.temp_range = (low, high)
+        result["target_temp"] = value / self.temp_divisor
 
-        return result if result else None
+        value, low, high = self._decode_register(power)
+        if high:
+            self.power_range = (low, high)
+        result["power"] = value
+        return result
 
-    def query_fans(self) -> dict:
-        """Query the fan level registers (heating fan, ducted fans 1-2).
+    def query_fans(self) -> dict | None:
+        """Query the fan level registers (ducted fans 1-2).
 
-        Each is a 0e record with its own range: 1-6 for the heating fan,
-        0-6 for the ducted ones (0 = off) on a Jollymec-like stove.
+        Each is a 0e record with its own range. None if any did not answer.
         """
         result = {}
         for key, register in FAN_REGISTERS.items():
             hexdata = self._query(f'["2WC","1","03{register}"]', min_hex_len=18, register=register)
-            if hexdata:
-                value, low, high = self._decode_register(hexdata)
-                if high:
-                    self.fan_ranges[key] = (low, high)
-                result[key] = value
+            if not hexdata:
+                return None
+            value, low, high = self._decode_register(hexdata)
+            if high:
+                self.fan_ranges[key] = (low, high)
+            result[key] = value
         return result
 
-    def query_live_power(self) -> dict:
+    def query_live_power(self) -> dict | None:
         """Query the running power level from state_info (0c81), liv_pot.
 
-        Byte 3 is an ASCII digit: 0x32 is power 2.
+        Byte 3 is an ASCII digit: 0x32 is power 2. None if the reply is missing
+        or not a digit.
         """
         hexdata = self._query(
             QUERY_MODULE_INFO, min_hex_len=8, register=REGISTER_MODULE_INFO
         )
         if not hexdata:
-            return {}
+            return None
         digit = bytes.fromhex(hexdata[:8])[3]
         if not 0x30 <= digit <= 0x39:
-            return {}
+            return None
         return {"live_power": digit - 0x30}
 
-    def query_fan_setting(self) -> dict:
+    def query_fan_setting(self) -> dict | None:
         """Query the panel's fan setting, if a register is configured.
 
         Signed, with the range the record carries (-7..+7 on a Ferlux).
+        {} when no register is configured, None when the read failed.
         """
         if not self.fan_register:
             return {}
         register = self.fan_register
         hexdata = self._query(f'["2WC","1","03{register}"]', min_hex_len=18, register=register)
         if not hexdata:
-            return {}
+            return None
         value, low, high = self._decode_signed(hexdata)
         if low < high:
             self.fan_setting_range = (low, high)
         # the heating fan power sensor shows the panel's fan setting
         return {"fan_setting": value, "heating_fan_power": value}
 
-    def query_heating_setting(self) -> dict:
-        """Query the heating setting (0e/023f): unsigned, OFF..7, 7 = Auto."""
+    def query_heating_setting(self) -> dict | None:
+        """Query the heating setting (0e/023f): unsigned, OFF..7, 7 = Auto. None on failure."""
         hexdata = self._query(
             f'["2WC","1","03{REGISTER_HEATING}"]', min_hex_len=18, register=REGISTER_HEATING
         )
         if not hexdata:
-            return {}
+            return None
         value, low, high = self._decode_register(hexdata)
         if high:
             self.heating_setting_range = (low, high)

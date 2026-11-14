@@ -18,6 +18,8 @@ class FourHeatLiteCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, host: str) -> None:
         self.api = FourHeatLiteApi(host)
         self._failed_polls = 0
+        self._group_last: dict[str, dict] = {}
+        self._group_fails: dict[str, int] = {}
         super().__init__(
             hass,
             _LOGGER,
@@ -58,10 +60,27 @@ class FourHeatLiteCoordinator(DataUpdateCoordinator):
         self.push_data(data)
         return True
 
+    async def _fetch(self, group: str, query) -> dict | None:
+        """Run one query group. On failure, reuse its last values for MAX_STALE_POLLS polls.
+
+        After that the group's keys are dropped, so their entities show Unknown.
+        """
+        result = await self.hass.async_add_executor_job(query)
+        if result is None:
+            self._group_fails[group] = self._group_fails.get(group, 0) + 1
+            if self._group_fails[group] <= MAX_STALE_POLLS:
+                return self._group_last.get(group)
+            self._group_last.pop(group, None)
+            _LOGGER.debug("%s unanswered for %d polls, showing unknown", group, self._group_fails[group])
+            return None
+        self._group_fails[group] = 0
+        self._group_last[group] = result
+        return result
+
     async def _async_update_data(self) -> dict:
         # Config first: the target register gives the temperature unit that
         # decoding the sensor block needs.
-        config = await self.hass.async_add_executor_job(self.api.query_config)
+        config = await self._fetch("config", self.api.query_config)
         data = await self.hass.async_add_executor_job(self.api.query_sensors)
         if data is None:
             self._failed_polls += 1
@@ -72,14 +91,15 @@ class FourHeatLiteCoordinator(DataUpdateCoordinator):
                 return self.data
             raise UpdateFailed("Failed to query 4HEAT Lite module")
         self._failed_polls = 0
+        for group, query in (
+            ("fans", self.api.query_fans),
+            ("fan_setting", self.api.query_fan_setting),
+            ("heating_setting", self.api.query_heating_setting),
+            ("live_power", self.api.query_live_power),
+        ):
+            values = await self._fetch(group, query)
+            if values:
+                data.update(values)
         if config:
             data.update(config)
-        fans = await self.hass.async_add_executor_job(self.api.query_fans)
-        data.update(fans)
-        fan_setting = await self.hass.async_add_executor_job(self.api.query_fan_setting)
-        data.update(fan_setting)
-        heating = await self.hass.async_add_executor_job(self.api.query_heating_setting)
-        data.update(heating)
-        live = await self.hass.async_add_executor_job(self.api.query_live_power)
-        data.update(live)
         return data

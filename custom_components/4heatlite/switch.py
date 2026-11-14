@@ -70,8 +70,6 @@ class AutoSwitch(FourHeatLiteEntity, SwitchEntity):
     def available(self) -> bool:
         return (
             super().available
-            and self.coordinator.data is not None
-            and self.coordinator.data.get(self._data_key) is not None
         )
 
     async def async_turn_on(self, **kwargs) -> None:
