@@ -199,7 +199,7 @@ REGISTER_SENSOR_DEFS = [
     },
     {
         "key": "heating_fan_power",
-        "name": "Heating Fan Power",
+        "name": "Room Fan Power",
         "icon": "mdi:fan",
         "state_class": SensorStateClass.MEASUREMENT,
     },

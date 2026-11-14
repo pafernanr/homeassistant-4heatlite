@@ -20,6 +20,7 @@ from .const import (
     QUERY_SCHEDULE,
     QUERY_SENSORS,
     REGISTER_EXHAUST,
+    REGISTER_HEATING,
     REGISTER_MODULE_INFO,
     REGISTER_POWER,
     REGISTER_SENSORS,
@@ -56,6 +57,8 @@ class FourHeatLiteApi:
         # the panel's fan setting, when configured (DEFAULT_FAN_REGISTER); signed
         self.fan_register: str | None = None
         self.fan_setting_range: tuple[int, int] | None = None
+        # heating setting (0e/023f): OFF..7, 7 = Auto
+        self.heating_setting_range: tuple[int, int] | None = None
         # last record read per register: on whole-degree stoves a write must send
         # the record back whole, or the module keeps it and the board never sees it
         self._records: dict[str, str] = {}
@@ -243,6 +246,18 @@ class FourHeatLiteApi:
         # the heating fan power sensor shows the panel's fan setting
         return {"fan_setting": value, "heating_fan_power": value}
 
+    def query_heating_setting(self) -> dict:
+        """Query the heating setting (0e/023f): unsigned, OFF..7, 7 = Auto."""
+        hexdata = self._query(
+            f'["2WC","1","03{REGISTER_HEATING}"]', min_hex_len=18, register=REGISTER_HEATING
+        )
+        if not hexdata:
+            return {}
+        value, low, high = self._decode_register(hexdata)
+        if high:
+            self.heating_setting_range = (low, high)
+        return {"heating_setting": value}
+
     def test_connection(self) -> bool:
         """Test if the module responds to a 2WC query."""
         result = self.query_sensors()
@@ -341,6 +356,16 @@ class FourHeatLiteApi:
             low, high = self.fan_setting_range
             value = max(low, min(high, value))
         return self._whole_record(self.fan_register, value)
+
+    def build_heating_setting_command(self, value: int) -> list | None:
+        """Write the heating setting (0e/023f): the whole record, value replaced.
+
+        None until the register has been read.
+        """
+        if self.heating_setting_range:
+            low, high = self.heating_setting_range
+            value = max(low, min(high, value))
+        return self._whole_record(REGISTER_HEATING, value)
 
     def decode_echo(self, records: list) -> dict:
         """Decode the register records a write reply carries.

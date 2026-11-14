@@ -133,7 +133,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DATA_COORDINATOR: coordinator,
     }
 
-    platforms = list(PLATFORMS) + [Platform.NUMBER]
+    platforms = list(PLATFORMS) + [Platform.NUMBER, Platform.SWITCH]
     entry_data[DATA_PLATFORMS] = platforms
 
     hass.data[DOMAIN][entry.entry_id] = entry_data

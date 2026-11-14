@@ -39,7 +39,7 @@ Additional sensors parsed from the module's `POST /api/devices/store` Values arr
 | Remote Room Temperature | `remote_room_temp` | 12/ffe0 | Temp ambiente remota | Shows unavailable when 0 (no probe) |
 | Remote Room Temperature 2 | `remote_room_temp_2` | 12/ffe8 | Temp ambiente remota 2 | Shows unavailable when 0 (no probe) |
 | Airflow | `airflow` | 12/ffed | Flusso aria | Raw value (unit TBD) |
-| Heating Fan Power | `heating_fan_power` | Fan register option (`0e/038c` on a Ferlux) | Potencia calefacción | |
+| Room Fan Power | `heating_fan_power` | Fan setting `0e/038c` (-7..+7) | Potencia ventilador sala | |
 | Ducted Fan 1 | `ducted_fan_1` | 0e/0266 | Potencia canalizada 1 | Disabled by default |
 | Ducted Fan 2 | `ducted_fan_2` | 0e/027e | Potencia canalizada 2 | Disabled by default |
 | Cleaning Counter | `cleaning_counter` | 12/ffde | CLEANING 4WEB | Diagnostic |

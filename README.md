@@ -135,7 +135,7 @@ Additional sensors (proxy store push, cloud_keepalive/local_only modes):
 
 - **Remote Room Temperature** / **Remote Room Temperature 2**: remote temperature probes (°C, shows unavailable when no probe connected)
 - **Airflow**: combustion airflow (raw value)
-- **Heating Fan Power**: heating fan speed level
+- **Room Fan Power**: room fan setting (`0e/038c`), not the heating fan
 - **Ducted Fan 1** / **Ducted Fan 2**: ducted fan speed levels (disabled by default)
 - **Cleaning Counter** / **Service Counter**: maintenance counters (diagnostic)
 
@@ -148,6 +148,7 @@ Sent via [TCP direct](#tcp-direct) — instant response, no polling delay.
 - **ON / OFF**: start or stop the stove
 - **Target temperature**: set room target (10-40°C, 0.1°C step)
 - **Power level**: set power (1-7)
+- **Combustion** and **Heating**: number entities (1-6 manual, 7 = Auto; heating also OFF = 0) and an **Auto** switch per setting (on = Auto, off = last manual value)
 - **Fan setting**: number entity (-7..+7 on a Ferlux, register `0e038c`)
 
 All write commands are available via the [climate entity](docs/SENSORS.md#climate-entity) (HVAC modes, temperature slider, power presets).
