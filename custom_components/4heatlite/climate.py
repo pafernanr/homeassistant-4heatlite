@@ -35,7 +35,7 @@ async def async_setup_entry(
 
 
 class StoveClimate(CoordinatorEntity, ClimateEntity):
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
@@ -81,13 +81,13 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
         return [f"Power {i}" for i in range(low, high + 1)]
 
     @property
-    def current_temperature(self):
+    def native_current_temperature(self):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.get("room_temp")
 
     @property
-    def target_temperature(self):
+    def native_target_temperature(self):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.get("target_temp")
