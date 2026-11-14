@@ -74,7 +74,7 @@ The Device ID is printed on the module's label. You can also find it in the 4HEA
 
 After setup, go to the integration's options to change:
 - **Proxy Mode**: Direct, Cloud Keepalive, or Local Only (see [Proxy Modes](docs/PROXY_MODES.md))
-- **Fan register** (advanced): the register the panel's fan setting lives in, when it isn't the one the 4HEAT filemap declares (`0e038c` on a Ferlux). Adds a fan number entity. See [Fan setting](docs/SENSORS.md#fan-setting).
+- **Fan setting**: number entity (-7..+7 on a Ferlux, register `0e038c`)
 - **Heating Schedules**: YAML editor with multiple named schedules. Set `active: true` on one to send it to the stove. See the [schedule example](#schedule-management) below.
 
 To enable debug logging, use HA's built-in toggle: go to the integration page, click the three-dot menu, and select "Enable debug logging".
@@ -148,7 +148,7 @@ Sent via [TCP direct](#tcp-direct) — instant response, no polling delay.
 - **ON / OFF**: start or stop the stove
 - **Target temperature**: set room target (10-40°C, 0.1°C step)
 - **Power level**: set power (1-7)
-- **Fan setting**: with the **Fan register** option set, a number entity (-7..+7 on a Ferlux)
+- **Fan setting**: number entity (-7..+7 on a Ferlux, register `0e038c`)
 
 All write commands are available via the [climate entity](docs/SENSORS.md#climate-entity) (HVAC modes, temperature slider, power presets).
 

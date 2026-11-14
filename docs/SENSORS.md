@@ -180,7 +180,7 @@ On a Ferlux (product `SYEVO0000559`) the fan setting of the panel is not the reg
 ```
 Values are two's complement (`fff9` = -7). Writing the whole record with the value replaced changed the panel (+5 → +2).
 
-The **Fan register** option (`0e038c` on that stove) adds a fan number entity on that register, with the range the record reports. Other stoves keep it empty. To look for the register on another stove, read the `0e` group one address at a time (`["2WC","1","030e<address>"]`, read-only), change the fan on the panel, read again and compare.
+The fan number entity (-7..+7) is always created on `0e/038c`, with the range the record reports. It only appears when that register reads. To look for the register on another stove, read the `0e` group one address at a time (`["2WC","1","030e<address>"]`, read-only), change the fan on the panel, read again and compare.
 
 ### Temperature unit
 

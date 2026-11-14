@@ -45,7 +45,6 @@
         "data": {
           "proxy_mode": "Proxy Mode",
           "module_address": "Expected module IP",
-          "fan_register": "Fan register (advanced)",
           "schedules": "Heating Schedules"
         },
         "data_description": {

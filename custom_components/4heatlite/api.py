@@ -53,7 +53,7 @@ class FourHeatLiteApi:
         self.power_range: tuple[int, int] | None = None
         # data key -> (min, max) of each fan register the stove answers for
         self.fan_ranges: dict[str, tuple[int, int]] = {}
-        # the panel's fan setting, when configured (CONF_FAN_REGISTER); signed
+        # the panel's fan setting, when configured (DEFAULT_FAN_REGISTER); signed
         self.fan_register: str | None = None
         self.fan_setting_range: tuple[int, int] | None = None
         # last record read per register: on whole-degree stoves a write must send

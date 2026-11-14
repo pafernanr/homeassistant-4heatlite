@@ -17,7 +17,7 @@ from .const import (
     CONF_CACHED_SCHEDULE,
     CONF_CACHED_SCHEDULES,
     CONF_DEVICE_ID,
-    CONF_FAN_REGISTER,
+    DEFAULT_FAN_REGISTER,
     CONF_MODULE_ADDRESS,
     CONF_PROXY_MODE,
     CONF_SCHEDULE_ENABLED,
@@ -87,8 +87,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         host = await _async_resolve_host(hass, stored_host)
 
     coordinator = FourHeatLiteCoordinator(hass, host)
-    fan_register = entry.options.get(CONF_FAN_REGISTER, "").strip().lower() or None
-    coordinator.api.fan_register = fan_register
+    coordinator.api.fan_register = DEFAULT_FAN_REGISTER
 
     hass.data.setdefault(DOMAIN, {})
 
@@ -134,9 +133,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DATA_COORDINATOR: coordinator,
     }
 
-    platforms = list(PLATFORMS)
-    if fan_register:
-        platforms.append(Platform.NUMBER)
+    platforms = list(PLATFORMS) + [Platform.NUMBER]
     entry_data[DATA_PLATFORMS] = platforms
 
     hass.data[DOMAIN][entry.entry_id] = entry_data

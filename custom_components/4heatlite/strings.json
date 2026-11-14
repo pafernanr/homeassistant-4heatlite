@@ -45,7 +45,6 @@
         "data": {
           "proxy_mode": "Proxy Mode",
           "module_address": "Expected module IP",
-          "fan_register": "Fan register (advanced)",
           "schedules": "Heating Schedules"
         },
         "data_description": {
@@ -61,8 +60,7 @@
       "invalid_day": "Day names must be: mon, tue, wed, thu, fri, sat, sun.",
       "overlapping_slots": "Time slots overlap on the same day.",
       "schedule_send_failed": "Failed to send schedule to module.",
-      "multiple_active": "Only one schedule can be active at a time.",
-      "invalid_register": "A register is 6 hex digits, group + address (e.g. 0e038c)."
+      "multiple_active": "Only one schedule can be active at a time."
     }
   }
 }

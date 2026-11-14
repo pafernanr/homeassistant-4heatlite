@@ -16,7 +16,7 @@ QUERY_EXHAUST = '["2WC","1","0312ffff"]'
 REGISTER_SENSORS = "10"
 REGISTER_EXHAUST = "12ffff"
 # Fan levels the 4HEAT filemap declares, polled over TCP: data key -> 0e register.
-# On a Ferlux the panel's fan setting is not among them (see CONF_FAN_REGISTER).
+# On a Ferlux the panel's fan setting is not among them (see DEFAULT_FAN_REGISTER).
 # state_info: byte 3 is the running power level as an ASCII digit (liv_pot).
 # 0e/016c stays at the max on Lasian, so it is the set point only.
 QUERY_MODULE_INFO = '["2WC","1","030c81"]'
@@ -88,10 +88,9 @@ CONF_MODULE_ADDRESS = "module_address"
 CONF_PROXY_MODE = "proxy_mode"
 CONF_SCHEDULE_ENABLED = "schedule_enabled"  # v2 migration only
 CONF_CACHED_SCHEDULE = "cached_schedule"  # v2 migration only
-# The register the panel's fan setting lives in, when it isn't one the filemap
-# declares: 0e038c (-7..+7) on a Ferlux SYEVO0000559, whose 0e023f never moves.
-# Empty = no fan control.
-CONF_FAN_REGISTER = "fan_register"
+# The register the panel's fan setting lives in: 0e038c (-7..+7) on a Ferlux
+# SYEVO0000559, whose 0e023f never moves. The number entity is created on it.
+DEFAULT_FAN_REGISTER = "0e038c"
 CONF_ACTIVE_SCHEDULE = "active_schedule"
 CONF_CACHED_SCHEDULES = "cached_schedules"
 NUM_SCHEDULE_SLOTS = 3
