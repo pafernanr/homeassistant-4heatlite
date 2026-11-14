@@ -2,6 +2,13 @@
   "config": {
     "step": {
       "user": {
+        "title": "Ofen verbinden",
+        "menu_options": {
+          "local": "Lokale Verbindung (ohne Konto)",
+          "cloud": "4HEAT-Konto (mit Proxy-Modi)"
+        }
+      },
+      "cloud": {
         "title": "4HEAT-Cloud-Anmeldung",
         "description": "Melde dich mit deinem 4HEAT-Konto an, um den Geräteschlüssel abzurufen.",
         "data": {
@@ -18,7 +25,7 @@
       },
       "device": {
         "title": "4HEAT Lite Ofen",
-        "description": "Bestätige die Gerätedaten. Die IP-Adresse wurde automatisch erkannt.",
+        "description": "Wähle ein gefundenes Modul oder gib seine IP-Adresse oder seinen Hostnamen ein. Für die lokale Verbindung ist die Geräte-ID optional.",
         "data": {
           "device_id": "Geräte-ID (auf dem Modul-Etikett)",
           "name": "Name des Ofens",
@@ -36,6 +43,9 @@
       "cannot_connect": "Keine Verbindung zum Modul. IP-Adresse prüfen und ob der Ofen eingeschaltet ist.",
       "already_configured": "Dieses Gerät ist bereits eingerichtet.",
       "device_key_failed": "Geräteschlüssel konnte nicht aus der 4HEAT-Cloud abgerufen werden. Geräte-ID prüfen."
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät ist bereits eingerichtet."
     }
   },
   "options": {

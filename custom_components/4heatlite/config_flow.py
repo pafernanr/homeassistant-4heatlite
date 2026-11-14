@@ -19,6 +19,7 @@ from .const import (
     CONF_CACHED_SCHEDULES,
     CONF_DEVICE_ID,
     CONF_DEVICE_KEY,
+    CONF_LOCAL_SETUP,
     DEFAULT_FAN_REGISTER,
     CONF_MODULE_ADDRESS,
     CONF_PROXY_MODE,
@@ -38,6 +39,22 @@ AZURE_DETAILS_URL = "https://wifi4heat.azurewebsites.net/api/devices/Details"
 MANUAL_ENTRY = "__manual__"
 
 
+def _proxy_fields(mode: str, address: str) -> dict:
+    """Proxy settings shared by cloud-assisted setup and its options."""
+    return {
+        vol.Optional(
+            CONF_PROXY_MODE, default=mode
+        ): vol.In({
+            PROXY_MODE_DIRECT: "Direct — no interception, all module traffic goes to Azure. HA reads sensors via TCP",
+            PROXY_MODE_KEEPALIVE: "Cloud Keepalive — module traffic handled locally, only register and store keepalives are mirrored to Azure so the mobile app sees the device online. Requires DNS/DNAT",
+            PROXY_MODE_LOCAL: "Local Only — all module traffic handled locally, nothing sent to Azure. Mobile app will show the device as offline. Requires DNS/DNAT",
+        }),
+        vol.Optional(
+            CONF_MODULE_ADDRESS, default=address
+        ): str,
+    }
+
+
 class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for 4HEAT Lite."""
 
@@ -46,9 +63,20 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     _token: str | None = None
     _discovered_device_id: str | None = None
     _discovered_host: str | None = None
+    _local_setup: bool = False
 
     async def async_step_user(self, user_input=None):
+        """Choose how to connect the module."""
+        return self.async_show_menu(step_id="user", menu_options=["local", "cloud"])
+
+    async def async_step_local(self, user_input=None):
+        """Discover the module on the LAN without cloud credentials."""
+        self._local_setup = True
+        return await self.async_step_discovery()
+
+    async def async_step_cloud(self, user_input=None):
         """Step 1: authenticate with 4HEAT cloud using email/password."""
+        self._local_setup = False
         errors = {}
 
         if user_input is not None:
@@ -63,7 +91,7 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "auth_failed"
 
         return self.async_show_form(
-            step_id="user",
+            step_id="cloud",
             data_schema=vol.Schema(
                 {
                     vol.Required("email"): str,
@@ -111,23 +139,23 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_device(self, user_input=None):
-        """Step 3: confirm device details and fetch DeviceKey from Azure."""
+        """Check the LAN connection and retrieve the key for cloud-assisted setup."""
         errors = {}
 
         if user_input is not None:
-            device_id = user_input[CONF_DEVICE_ID].strip()
+            device_id = user_input.get(CONF_DEVICE_ID, "").strip()
             host = user_input[CONF_HOST].strip()
 
+            resolved = await self._async_resolve_host(host)
             for entry in self._async_current_entries():
-                if entry.data.get(CONF_DEVICE_ID) == device_id:
+                if device_id and entry.data.get(CONF_DEVICE_ID) == device_id:
                     errors[CONF_DEVICE_ID] = "already_configured"
                     break
-                if entry.data.get(CONF_HOST) == host:
+                if entry.data.get(CONF_HOST) in (host, resolved):
                     errors[CONF_HOST] = "already_configured"
                     break
 
             if not errors:
-                resolved = await self._async_resolve_host(host)
                 api = FourHeatLiteApi(resolved)
                 can_connect = await self.hass.async_add_executor_job(
                     api.test_connection
@@ -138,17 +166,19 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     host = resolved
 
             device_key = ""
-            if not errors:
+            if not errors and not self._local_setup:
                 device_key = await self._async_fetch_device_key(device_id)
                 if not device_key:
                     errors["base"] = "device_key_failed"
 
             if not errors:
-                await self.async_set_unique_id(device_id)
-                self._abort_if_unique_id_configured()
-                proxy_mode = user_input.get(
-                    CONF_PROXY_MODE, PROXY_MODE_DIRECT
-                )
+                self._async_abort_entries_match({CONF_HOST: host})
+                if device_id:
+                    await self.async_set_unique_id(device_id)
+                    self._abort_if_unique_id_configured()
+                proxy_mode = PROXY_MODE_DIRECT
+                if not self._local_setup:
+                    proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_DIRECT)
                 module_address = user_input.get(
                     CONF_MODULE_ADDRESS, ""
                 ).strip() or host
@@ -159,6 +189,7 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_NAME: user_input[CONF_NAME],
                         CONF_HOST: host,
                         CONF_DEVICE_KEY: device_key,
+                        CONF_LOCAL_SETUP: self._local_setup,
                     },
                     options={
                         CONF_PROXY_MODE: proxy_mode,
@@ -169,25 +200,18 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         default_id = self._discovered_device_id or ""
         default_host = self._discovered_host or ""
 
+        id_field = vol.Optional if self._local_setup else vol.Required
+        fields = {
+            id_field(CONF_DEVICE_ID, default=default_id): str,
+            vol.Required(CONF_NAME, default="Pellet Stove"): str,
+            vol.Required(CONF_HOST, default=default_host): str,
+        }
+        if not self._local_setup:
+            fields.update(_proxy_fields(PROXY_MODE_DIRECT, default_host))
+
         return self.async_show_form(
             step_id="device",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_DEVICE_ID, default=default_id): str,
-                    vol.Required(CONF_NAME, default="Pellet Stove"): str,
-                    vol.Required(CONF_HOST, default=default_host): str,
-                    vol.Optional(
-                        CONF_PROXY_MODE, default=PROXY_MODE_DIRECT
-                    ): vol.In({
-                        PROXY_MODE_DIRECT: "Direct — no interception, all module traffic goes to Azure. HA reads sensors via TCP",
-                        PROXY_MODE_KEEPALIVE: "Cloud Keepalive — module traffic handled locally, only register and store keepalives are mirrored to Azure so the mobile app sees the device online. Requires DNS/DNAT",
-                        PROXY_MODE_LOCAL: "Local Only — all module traffic handled locally, nothing sent to Azure. Mobile app will show the device as offline. Requires DNS/DNAT",
-                    }),
-                    vol.Optional(
-                        CONF_MODULE_ADDRESS, default=default_host
-                    ): str,
-                }
-            ),
+            data_schema=vol.Schema(fields),
             errors=errors,
         )
 
@@ -273,8 +297,12 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         errors = {}
 
+        local_setup = self.config_entry.data.get(CONF_LOCAL_SETUP, False)
+
         if user_input is not None:
-            proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_DIRECT)
+            proxy_mode = PROXY_MODE_DIRECT if local_setup else user_input.get(
+                CONF_PROXY_MODE, PROXY_MODE_DIRECT
+            )
             schedules_data = user_input.get("schedules")
 
             if not isinstance(schedules_data, list):
@@ -373,28 +401,14 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                     "slots": [],
                 })
 
+        fields = {}
+        if not local_setup:
+            fields.update(_proxy_fields(current_mode, current_module_addr))
+        fields[vol.Optional("schedules", default=current_schedules)] = ObjectSelector()
+
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_PROXY_MODE,
-                        default=current_mode,
-                    ): vol.In({
-                        PROXY_MODE_DIRECT: "Direct — no interception, all module traffic goes to Azure. HA reads sensors via TCP",
-                        PROXY_MODE_KEEPALIVE: "Cloud Keepalive — module traffic handled locally, only register and store keepalives are mirrored to Azure so the mobile app sees the device online. Requires DNS/DNAT",
-                        PROXY_MODE_LOCAL: "Local Only — all module traffic handled locally, nothing sent to Azure. Mobile app will show the device as offline. Requires DNS/DNAT",
-                    }),
-                    vol.Optional(
-                        CONF_MODULE_ADDRESS,
-                        default=current_module_addr,
-                    ): str,
-                    vol.Optional(
-                        "schedules",
-                        default=current_schedules,
-                    ): ObjectSelector(),
-                }
-            ),
+            data_schema=vol.Schema(fields),
             errors=errors,
             description_placeholders={
                 "proxy_modes_url": "https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/PROXY_MODES.md"
