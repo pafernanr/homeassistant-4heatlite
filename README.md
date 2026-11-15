@@ -74,7 +74,7 @@ The Device ID is printed on the module's label. You can also find it in the 4HEA
 
 After setup, go to the integration's options to change:
 - **Proxy Mode**: Direct, Cloud Keepalive, or Local Only (see [Proxy Modes](docs/PROXY_MODES.md))
-- **Fan setting**: number entity (-7..+7 on a Ferlux, register `0e038c`)
+- **Fan setting**: number entity (-7..+7)
 - **Heating Schedules**: YAML editor with multiple named schedules. Set `active: true` on one to send it to the stove. See the [schedule example](#schedule-management) below.
 
 To enable debug logging, use HA's built-in toggle: go to the integration page, click the three-dot menu, and select "Enable debug logging".
@@ -127,7 +127,7 @@ Core sensors (TCP polling, all modes):
 - **Exhaust temperature**: exhaust gas temperature in °C
 - **Room temperature**: room temperature in °C (0.1° precision)
 - **Target temperature**: configured target room temperature in °C
-- **Combustion Level**: running combustion level (1-7), from `0c/81`
+- **Combustion Level**: running combustion level (1-6, Auto)
 - **Running**: binary sensor, ON when stove is in any active state
 - **Error Active**: binary sensor, ON when an error code is present
 
@@ -148,7 +148,7 @@ Sent via [TCP direct](#tcp-direct) — instant response, no polling delay.
 - **ON / OFF**: start or stop the stove
 - **Target temperature**: set room target (10-40°C, 0.1°C step)
 - **Combustion** and **Heating** (Level): number entities (1-6 manual, 7 = Auto; heating also OFF = 0) and an **Auto** switch per setting (on = Auto, off = last manual value)
-- **Room Fan**: number entity (-7..+7 on a Ferlux, register `0e038c`)
+- **Room Fan**: number entity (-7..+7)
 
 All write commands are available via the [climate entity](docs/SENSORS.md#climate-entity) (HVAC modes, temperature slider, power presets).
 
@@ -225,9 +225,9 @@ echo -n '["H24","119","#13","1","180","230","240","0","0","450","230","570","0",
 # Response: ["H24","1","OK"]
 ```
 
-#### Command Queue (Proxy Endpoint)
+#### Command Queue
 
-In Local Only mode, the module polls `GET /api/devices/commands?id=<device_id>&removefromserver=true` every ~60 seconds. The proxy returns queued commands in compact JSON. This is the same protocol the 4HEAT cloud uses.
+The module polls `GET /api/devices/commands?id=<device_id>&removefromserver=true` every ~60 seconds. The proxy returns queued commands in compact JSON. This is the same protocol the 4HEAT cloud uses.
 
 ```bash
 # Check the queue (without draining it)
