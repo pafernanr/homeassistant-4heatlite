@@ -628,27 +628,75 @@ class FourHeatLiteApi:
         return None
 
     @staticmethod
-    def default_schedule_entry(protocol: str, name: str = "Schedule 1") -> dict:
-        """Disabled starter entry for a protocol."""
+    def default_schedule_entries(protocol: str) -> list[dict]:
+        """Disabled example entries for a protocol."""
+
+        def slot(start, end, enabled=True):
+            return {"start": start, "end": end, "enabled": enabled}
+
         if protocol == PROTOCOL_CCS:
-            return {
-                "name": name,
+            return [
+                {
+                    "name": "Example weekly (same every day)",
+                    "active": False,
+                    "period": "weekly",
+                    "weekly_slots": [
+                        slot("08:00", "10:00"),
+                        slot("13:00", "15:00", False),
+                        slot("19:30", "21:30"),
+                    ],
+                },
+                {
+                    "name": "Example weekend (Mon-Fri / Sat-Sun)",
+                    "active": False,
+                    "period": "weekend",
+                    "workday_slots": [
+                        slot("06:30", "08:30"),
+                        slot("18:00", "22:00"),
+                    ],
+                    "weekend_slots": [slot("08:00", "23:00")],
+                },
+                {
+                    "name": "Example daily (per day)",
+                    "active": False,
+                    "period": "daily",
+                    "daily_slots": {
+                        "mon": [slot("06:30", "08:30")],
+                        "sat": [slot("08:00", "23:00")],
+                        "sun": [slot("08:00", "23:00")],
+                    },
+                },
+            ]
+        weekdays = ["mon", "tue", "wed", "thu", "fri"]
+        return [
+            {
+                "name": "Example H24",
                 "active": False,
-                "period": "weekly",
-                "weekly_slots": [
-                    {"start": "08:00", "end": "10:00", "enabled": False},
-                    {"start": "13:00", "end": "15:00", "enabled": False},
-                    {"start": "19:30", "end": "21:30", "enabled": False},
+                "eco": 18,
+                "comfort": 21,
+                "comfort2": 23,
+                "slots": [
+                    {
+                        "days": weekdays,
+                        "start": "06:30",
+                        "end": "08:30",
+                        "band": "comfort",
+                    },
+                    {
+                        "days": list(weekdays),
+                        "start": "18:00",
+                        "end": "22:00",
+                        "band": "comfort2",
+                    },
+                    {
+                        "days": ["sat", "sun"],
+                        "start": "08:00",
+                        "end": "23:00",
+                        "band": "comfort",
+                    },
                 ],
             }
-        return {
-            "name": name,
-            "active": False,
-            "eco": 18,
-            "comfort": 21,
-            "comfort2": 23,
-            "slots": [],
-        }
+        ]
 
     @staticmethod
     def schedules_from_stove(parsed: dict | None) -> dict:
@@ -659,8 +707,8 @@ class FourHeatLiteApi:
         """
         result = {
             "protocol": PROTOCOL_H24,
-            PROTOCOL_H24: [FourHeatLiteApi.default_schedule_entry(PROTOCOL_H24)],
-            PROTOCOL_CCS: [FourHeatLiteApi.default_schedule_entry(PROTOCOL_CCS)],
+            PROTOCOL_H24: FourHeatLiteApi.default_schedule_entries(PROTOCOL_H24),
+            PROTOCOL_CCS: FourHeatLiteApi.default_schedule_entries(PROTOCOL_CCS),
         }
         protocol = (parsed or {}).get("protocol")
         if protocol == PROTOCOL_H24:
@@ -731,7 +779,7 @@ class FourHeatLiteApi:
                 for e in (entries if isinstance(entries, list) else [])
             ]
             if not result[proto]:
-                result[proto] = [FourHeatLiteApi.default_schedule_entry(proto)]
+                result[proto] = FourHeatLiteApi.default_schedule_entries(proto)
 
         protocol = (parsed or {}).get("protocol")
         if protocol not in SCHEDULE_PROTOCOLS:
@@ -755,16 +803,17 @@ class FourHeatLiteApi:
         while name in names:
             name, n = f"Stove {n}", n + 1
         seeded["name"] = name
-        # Drop untouched starter entries so they do not pile up.
-        defaults = FourHeatLiteApi._schedule_signature(
-            FourHeatLiteApi.default_schedule_entry(protocol)
-        )
+        # Drop untouched example entries so they do not pile up.
+        defaults = {
+            FourHeatLiteApi._schedule_signature(e)
+            for e in FourHeatLiteApi.default_schedule_entries(protocol)
+        }
         result[protocol] = [
             e
             for e in result[protocol]
             if not (
                 isinstance(e, dict)
-                and FourHeatLiteApi._schedule_signature(e) == defaults
+                and FourHeatLiteApi._schedule_signature(e) in defaults
             )
         ]
         result[protocol].append(seeded)
