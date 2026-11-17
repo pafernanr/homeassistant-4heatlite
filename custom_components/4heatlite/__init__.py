@@ -21,7 +21,6 @@ from .const import (
     CONF_MODULE_ADDRESS,
     CONF_PROXY_MODE,
     CONF_SCHEDULE_ENABLED,
-    CONF_SCHEDULES,
     DATA_COORDINATOR,
     DOMAIN,
     NUM_SCHEDULE_SLOTS,
@@ -144,20 +143,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await coordinator.async_config_entry_first_refresh()
     await hass.config_entries.async_forward_entry_setups(entry, platforms)
-
-    # Once, after install: seed the schedules option from the stove. Runs
-    # before the update listener is added so it does not trigger a reload.
-    if CONF_SCHEDULES not in entry.options:
-        parsed = await hass.async_add_executor_job(coordinator.api.query_schedule)
-        if parsed is not None:
-            device_entry["last_schedule"] = parsed
-            hass.config_entries.async_update_entry(
-                entry,
-                options={
-                    **entry.options,
-                    CONF_SCHEDULES: FourHeatLiteApi.schedules_from_stove(parsed),
-                },
-            )
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 

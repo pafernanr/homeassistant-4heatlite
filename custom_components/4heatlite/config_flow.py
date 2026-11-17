@@ -283,7 +283,9 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
 
             if not errors:
                 new_active = FourHeatLiteApi.get_active_schedule(schedules_data)
-                old_schedules = self.config_entry.options.get(CONF_SCHEDULES)
+                old_schedules = getattr(
+                    self, "_baseline", self.config_entry.options.get(CONF_SCHEDULES)
+                )
                 old_active = FourHeatLiteApi.get_active_schedule(old_schedules)
                 protocol = schedules_data.get("protocol", PROTOCOL_H24)
 
@@ -340,7 +342,10 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
             CONF_MODULE_ADDRESS,
             self.config_entry.data.get(CONF_HOST, ""),
         )
-        current_schedules = self.config_entry.options.get(CONF_SCHEDULES)
+        if user_input is not None:
+            current_schedules = user_input.get("schedules")
+        else:
+            current_schedules = await self._refresh_schedules_from_stove(errors)
         if not isinstance(current_schedules, dict):
             current_schedules = FourHeatLiteApi.schedules_from_stove(None)
 
@@ -372,6 +377,29 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                 "detected_protocol": self._detected_protocol(),
             },
         )
+
+    async def _refresh_schedules_from_stove(self, errors: dict) -> dict | None:
+        """Read the stove (source of truth) and merge it into the stored YAML.
+
+        On failure the cached YAML is returned and a warning is added.
+        """
+        cached = self.config_entry.options.get(CONF_SCHEDULES)
+        entry_data = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id, {})
+        coordinator = entry_data.get(DATA_COORDINATOR)
+        parsed = None
+        if coordinator:
+            parsed = await self.hass.async_add_executor_job(
+                coordinator.api.query_schedule
+            )
+        if parsed is None:
+            errors["base"] = "schedule_read_failed"
+            self._baseline = cached
+            return cached
+
+        self._update_proxy_schedule(parsed)
+        merged = FourHeatLiteApi.merge_stove_schedule(cached, parsed)
+        self._baseline = merged
+        return merged
 
     def _detected_protocol(self) -> str:
         """Protocol of the schedule last read from the stove, if known."""

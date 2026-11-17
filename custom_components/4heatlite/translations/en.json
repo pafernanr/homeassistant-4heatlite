@@ -65,6 +65,7 @@
       "overlapping_slots": "Time slots overlap on the same day.",
       "schedule_send_failed": "Failed to send schedule to module.",
       "multiple_active": "Only one schedule can be active at a time.",
+      "schedule_read_failed": "Could not read the schedule from the stove. Showing the saved schedules, which may be outdated.",
       "invalid_register": "A register is 6 hex digits, group + address (e.g. 0e038c)."
     }
   },

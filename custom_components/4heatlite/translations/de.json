@@ -65,6 +65,7 @@
       "overlapping_slots": "Zeitfenster überschneiden sich am selben Tag.",
       "schedule_send_failed": "Zeitplan konnte nicht an das Modul gesendet werden.",
       "multiple_active": "Es kann nur ein Zeitplan gleichzeitig aktiv sein.",
+      "schedule_read_failed": "Der Zeitplan konnte nicht vom Ofen gelesen werden. Es werden die gespeicherten Zeitpläne angezeigt, die veraltet sein können.",
       "invalid_register": "Ein Register besteht aus 6 Hex-Ziffern: Gruppe + Adresse (z. B. 0e038c)."
     }
   },

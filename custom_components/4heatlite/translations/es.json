@@ -65,6 +65,7 @@
       "overlapping_slots": "Los intervalos se solapan el mismo día.",
       "schedule_send_failed": "No se pudo enviar el horario al módulo.",
       "multiple_active": "Solo puede haber un horario activo a la vez.",
+      "schedule_read_failed": "No se pudo leer el horario de la estufa. Se muestran los horarios guardados, que pueden estar desactualizados.",
       "invalid_register": "Un registro tiene 6 dígitos hexadecimales: grupo + dirección (p. ej. 0e038c)."
     }
   },

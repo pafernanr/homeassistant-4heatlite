@@ -691,6 +691,86 @@ class FourHeatLiteApi:
         return result
 
     @staticmethod
+    def _schedule_signature(entry: dict) -> str:
+        """Comparable form of an entry, ignoring name, active and protocol."""
+
+        def norm(value):
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, (int, float)):
+                return float(value)
+            if isinstance(value, dict):
+                return {k: norm(v) for k, v in value.items()}
+            if isinstance(value, list):
+                return [norm(v) for v in value]
+            return value
+
+        data = {
+            k: v for k, v in entry.items() if k not in ("name", "active", "protocol")
+        }
+        return json.dumps(norm(data), sort_keys=True)
+
+    @staticmethod
+    def merge_stove_schedule(config, parsed: dict | None) -> dict:
+        """Merge the schedule read from the stove into the stored config.
+
+        The stove is the source of truth. The entry matching the stove
+        schedule becomes the only active one; if none matches, the stove
+        schedule is appended to the end of its protocol section. A disabled
+        stove schedule leaves every entry inactive. Returns a new dict.
+        """
+        if not isinstance(config, dict):
+            config = FourHeatLiteApi.schedules_from_stove(parsed)
+            return config
+
+        result = {"protocol": config.get("protocol", PROTOCOL_H24)}
+        for proto in SCHEDULE_PROTOCOLS:
+            entries = config.get(proto)
+            result[proto] = [
+                {**e, "active": False} if isinstance(e, dict) else e
+                for e in (entries if isinstance(entries, list) else [])
+            ]
+            if not result[proto]:
+                result[proto] = [FourHeatLiteApi.default_schedule_entry(proto)]
+
+        protocol = (parsed or {}).get("protocol")
+        if protocol not in SCHEDULE_PROTOCOLS:
+            return result
+
+        result["protocol"] = protocol
+        seeded = FourHeatLiteApi.schedules_from_stove(parsed)[protocol][0]
+        if not seeded["active"]:
+            return result
+
+        signature = FourHeatLiteApi._schedule_signature(seeded)
+        for entry in result[protocol]:
+            if isinstance(entry, dict) and (
+                FourHeatLiteApi._schedule_signature(entry) == signature
+            ):
+                entry["active"] = True
+                return result
+
+        names = {e.get("name") for e in result[protocol] if isinstance(e, dict)}
+        name, n = "Stove", 2
+        while name in names:
+            name, n = f"Stove {n}", n + 1
+        seeded["name"] = name
+        # Drop untouched starter entries so they do not pile up.
+        defaults = FourHeatLiteApi._schedule_signature(
+            FourHeatLiteApi.default_schedule_entry(protocol)
+        )
+        result[protocol] = [
+            e
+            for e in result[protocol]
+            if not (
+                isinstance(e, dict)
+                and FourHeatLiteApi._schedule_signature(e) == defaults
+            )
+        ]
+        result[protocol].append(seeded)
+        return result
+
+    @staticmethod
     def get_active_schedule(config) -> tuple[str, int, dict] | None:
         """(protocol, index, entry) of the active schedule, or None."""
         if not isinstance(config, dict):

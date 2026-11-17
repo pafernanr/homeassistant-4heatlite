@@ -65,6 +65,7 @@
       "overlapping_slots": "Le fasce orarie si sovrappongono nello stesso giorno.",
       "schedule_send_failed": "Impossibile inviare il programma al modulo.",
       "multiple_active": "È possibile avere un solo programma attivo alla volta.",
+      "schedule_read_failed": "Impossibile leggere il programma dalla stufa. Vengono mostrati i programmi salvati, che potrebbero essere obsoleti.",
       "invalid_register": "Un registro è composto da 6 cifre esadecimali: gruppo + indirizzo (es. 0e038c)."
     }
   },

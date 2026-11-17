@@ -65,6 +65,7 @@
       "overlapping_slots": "Les créneaux se chevauchent le même jour.",
       "schedule_send_failed": "Échec de l'envoi du programme au module.",
       "multiple_active": "Un seul programme peut être actif à la fois.",
+      "schedule_read_failed": "Impossible de lire le programme du poêle. Les programmes enregistrés sont affichés et peuvent être obsolètes.",
       "invalid_register": "Un registre comporte 6 chiffres hexadécimaux : groupe + adresse (ex. 0e038c)."
     }
   },
