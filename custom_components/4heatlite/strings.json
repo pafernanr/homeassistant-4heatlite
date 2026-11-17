@@ -49,7 +49,7 @@
           "schedules": "Heating Schedules"
         },
         "data_description": {
-          "schedule_type": "Some stoves only support CCS, others support both H24 and CCS. [More info]({scheduling_url})",
+          "schedule_type": "Some stoves only support H24, others support both H24 and CCS. [More info]({scheduling_url})",
           "module_address": "Source IP that Home Assistant expects for proxy requests. Set to router IP if the module is behind NAT."
         }
       }
@@ -68,6 +68,15 @@
       "schedule_send_failed": "Failed to send schedule to module.",
       "multiple_active": "Only one schedule can be active at a time.",
       "schedule_read_failed": "Could not read the schedule from the stove. Showing the saved schedules, which may be outdated."
+    }
+  },
+  "selector": {
+    "schedule_type": {
+      "options": {
+        "off": "Off – no schedule on the stove",
+        "h24": "H24 – flexible: 3 temperatures over multiple time ranges (not all stoves)",
+        "ccs": "CCS – simple on/off time slots, daily, weekly or weekend (all stoves)"
+      }
     }
   },
   "entity": {

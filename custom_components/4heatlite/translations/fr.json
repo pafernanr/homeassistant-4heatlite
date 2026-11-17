@@ -49,7 +49,7 @@
           "schedules": "Programmes de chauffage"
         },
         "data_description": {
-          "schedule_type": "Certains poêles ne prennent en charge que CCS, d'autres H24 et CCS. [Plus d'infos]({scheduling_url})",
+          "schedule_type": "Certains poêles ne prennent en charge que H24, d'autres H24 et CCS. [Plus d'infos]({scheduling_url})",
           "module_address": "IP source que Home Assistant attend pour les requêtes proxy. Utilisez l'IP du routeur si le module est derrière un NAT."
         }
       }
@@ -69,6 +69,15 @@
       "multiple_active": "Un seul programme peut être actif à la fois.",
       "schedule_read_failed": "Impossible de lire le programme du poêle. Les programmes enregistrés sont affichés et peuvent être obsolètes.",
       "invalid_register": "Un registre comporte 6 chiffres hexadécimaux : groupe + adresse (ex. 0e038c)."
+    }
+  },
+  "selector": {
+    "schedule_type": {
+      "options": {
+        "off": "Désactivé – aucun programme sur le poêle",
+        "h24": "H24 – flexible : 3 températures sur plusieurs plages horaires (pas tous les poêles)",
+        "ccs": "CCS – plages simples marche/arrêt, quotidien, hebdomadaire ou week-end (tous les poêles)"
+      }
     }
   },
   "entity": {

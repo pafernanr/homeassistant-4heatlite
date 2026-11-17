@@ -12,7 +12,12 @@ from homeassistant.const import CONF_HOST, CONF_NAME
 
 from .api import FourHeatLiteApi
 from .discovery import discover_modules
-from homeassistant.helpers.selector import ObjectSelector
+from homeassistant.helpers.selector import (
+    ObjectSelector,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 
 from .const import (
     CONF_DEVICE_ID,
@@ -26,6 +31,7 @@ from .const import (
     PROTOCOL_CCS,
     PROTOCOL_H24,
     PROXY_MODE_DIRECT,
+    SCHEDULE_TYPE_OFF,
     PROXY_MODE_KEEPALIVE,
     PROXY_MODE_LOCAL,
 )
@@ -276,11 +282,24 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_DIRECT)
             schedules_data = user_input.get("schedules")
-            if isinstance(schedules_data, dict):
+            schedule_type = user_input.get("schedule_type", PROTOCOL_H24)
+            if isinstance(schedules_data, dict) and schedule_type == SCHEDULE_TYPE_OFF:
+                # Off keeps the stored protocol and deactivates every entry.
+                stored = self.config_entry.options.get(CONF_SCHEDULES) or {}
+                previous = getattr(self, "_baseline", None) or stored
                 schedules_data = {
                     **schedules_data,
-                    "protocol": user_input.get("schedule_type", PROTOCOL_H24),
+                    "protocol": previous.get("protocol", PROTOCOL_H24),
+                    **{
+                        proto: [
+                            {**e, "active": False} if isinstance(e, dict) else e
+                            for e in schedules_data.get(proto) or []
+                        ]
+                        for proto in (PROTOCOL_H24, PROTOCOL_CCS)
+                    },
                 }
+            elif isinstance(schedules_data, dict):
+                schedules_data = {**schedules_data, "protocol": schedule_type}
 
             err = FourHeatLiteApi.validate_schedules_config(schedules_data)
             if err:
@@ -356,7 +375,11 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         if not isinstance(current_schedules, dict):
             current_schedules = FourHeatLiteApi.schedules_from_stove(None)
         if user_input is None:
-            current_type = current_schedules.get("protocol", PROTOCOL_H24)
+            current_type = (
+                current_schedules.get("protocol", PROTOCOL_H24)
+                if FourHeatLiteApi.get_active_schedule(current_schedules)
+                else SCHEDULE_TYPE_OFF
+            )
         current_schedules = {
             k: v for k, v in current_schedules.items() if k != "protocol"
         }
@@ -380,7 +403,13 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         "schedule_type",
                         default=current_type,
-                    ): vol.In({PROTOCOL_H24: "H24", PROTOCOL_CCS: "CCS"}),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[SCHEDULE_TYPE_OFF, PROTOCOL_H24, PROTOCOL_CCS],
+                            mode=SelectSelectorMode.LIST,
+                            translation_key="schedule_type",
+                        )
+                    ),
                     vol.Optional(
                         "schedules",
                         default=current_schedules,

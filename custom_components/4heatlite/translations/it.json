@@ -49,7 +49,7 @@
           "schedules": "Programmi di riscaldamento"
         },
         "data_description": {
-          "schedule_type": "Alcune stufe supportano solo CCS, altre sia H24 che CCS. [Maggiori info]({scheduling_url})",
+          "schedule_type": "Alcune stufe supportano solo H24, altre sia H24 che CCS. [Maggiori info]({scheduling_url})",
           "module_address": "IP di origine che Home Assistant si aspetta per le richieste proxy. Usa l'IP del router se il modulo è dietro NAT."
         }
       }
@@ -69,6 +69,15 @@
       "multiple_active": "È possibile avere un solo programma attivo alla volta.",
       "schedule_read_failed": "Impossibile leggere il programma dalla stufa. Vengono mostrati i programmi salvati, che potrebbero essere obsoleti.",
       "invalid_register": "Un registro è composto da 6 cifre esadecimali: gruppo + indirizzo (es. 0e038c)."
+    }
+  },
+  "selector": {
+    "schedule_type": {
+      "options": {
+        "off": "Spento – nessun programma sulla stufa",
+        "h24": "H24 – flessibile: 3 temperature su più fasce orarie (non tutte le stufe)",
+        "ccs": "CCS – semplici fasce on/off, giornaliero, settimanale o weekend (tutte le stufe)"
+      }
     }
   },
   "entity": {

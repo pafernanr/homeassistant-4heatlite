@@ -49,7 +49,7 @@
           "schedules": "Heizpläne"
         },
         "data_description": {
-          "schedule_type": "Manche Öfen unterstützen nur CCS, andere sowohl H24 als auch CCS. [Mehr Infos]({scheduling_url})",
+          "schedule_type": "Manche Öfen unterstützen nur H24, andere sowohl H24 als auch CCS. [Mehr Infos]({scheduling_url})",
           "module_address": "Quell-IP, von der Home Assistant Proxy-Anfragen erwartet. Bei NAT die Router-IP eintragen."
         }
       }
@@ -69,6 +69,15 @@
       "multiple_active": "Es kann nur ein Zeitplan gleichzeitig aktiv sein.",
       "schedule_read_failed": "Der Zeitplan konnte nicht vom Ofen gelesen werden. Es werden die gespeicherten Zeitpläne angezeigt, die veraltet sein können.",
       "invalid_register": "Ein Register besteht aus 6 Hex-Ziffern: Gruppe + Adresse (z. B. 0e038c)."
+    }
+  },
+  "selector": {
+    "schedule_type": {
+      "options": {
+        "off": "Aus – kein Zeitplan auf dem Ofen",
+        "h24": "H24 – flexibel: 3 Temperaturen über mehrere Zeitbereiche (nicht alle Öfen)",
+        "ccs": "CCS – einfache Ein/Aus-Zeitfenster, täglich, wöchentlich oder Wochenende (alle Öfen)"
+      }
     }
   },
   "entity": {

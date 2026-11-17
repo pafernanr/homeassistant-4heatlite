@@ -49,7 +49,7 @@
           "schedules": "Horarios de calefacción"
         },
         "data_description": {
-          "schedule_type": "Algunas estufas solo admiten CCS y otras admiten H24 y CCS. [Más info]({scheduling_url})",
+          "schedule_type": "Algunas estufas solo admiten H24, otras admiten H24 y CCS. [Más info]({scheduling_url})",
           "module_address": "IP de origen que Home Assistant espera para las peticiones proxy. Usa la IP del router si el módulo está detrás de NAT."
         }
       }
@@ -69,6 +69,15 @@
       "multiple_active": "Solo puede haber un horario activo a la vez.",
       "schedule_read_failed": "No se pudo leer el horario de la estufa. Se muestran los horarios guardados, que pueden estar desactualizados.",
       "invalid_register": "Un registro tiene 6 dígitos hexadecimales: grupo + dirección (p. ej. 0e038c)."
+    }
+  },
+  "selector": {
+    "schedule_type": {
+      "options": {
+        "off": "Apagado – sin horario en la estufa",
+        "h24": "H24 – flexible: 3 temperaturas en varios tramos horarios (no todas las estufas)",
+        "ccs": "CCS – tramos simples de encendido/apagado, diario, semanal o fin de semana (todas las estufas)"
+      }
     }
   },
   "entity": {

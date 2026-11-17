@@ -140,6 +140,8 @@ TEMP_SCALE = 10
 PROTOCOL_H24 = "h24"
 PROTOCOL_CCS = "ccs"
 SCHEDULE_PROTOCOLS = [PROTOCOL_H24, PROTOCOL_CCS]
+# Schedule Type radio value that disables the schedule
+SCHEDULE_TYPE_OFF = "off"
 # CCS wire value of the timer mode ("period" field)
 CCS_PERIODS = {"off": 0, "daily": 1, "weekly": 2, "weekend": 3}
 CCS_SLOTS_PER_GROUP = 3
