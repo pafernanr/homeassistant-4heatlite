@@ -45,10 +45,11 @@
         "data": {
           "proxy_mode": "Proxy Mode",
           "module_address": "Expected module IP",
-          "schedule_type": "Schedule Type",
+          "schedule_type": "Schedule Protocol",
           "schedules": "Heating Schedules"
         },
         "data_description": {
+          "schedule_type": "Some stoves only support CCS, others support both H24 and CCS. [More info]({scheduling_url})",
           "module_address": "Source IP that Home Assistant expects for proxy requests. Set to router IP if the module is behind NAT."
         }
       }

@@ -390,6 +390,7 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
             errors=errors,
             description_placeholders={
                 "proxy_modes_url": "https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/PROXY_MODES.md",
+                "scheduling_url": "https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/SCHEDULING.md",
                 "detected_protocol": self._detected_protocol(),
             },
         )

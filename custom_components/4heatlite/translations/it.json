@@ -45,10 +45,11 @@
         "data": {
           "proxy_mode": "Modalità proxy",
           "module_address": "IP previsto del modulo",
-          "schedule_type": "Tipo di programma",
+          "schedule_type": "Protocollo del programma",
           "schedules": "Programmi di riscaldamento"
         },
         "data_description": {
+          "schedule_type": "Alcune stufe supportano solo CCS, altre sia H24 che CCS. [Maggiori info]({scheduling_url})",
           "module_address": "IP di origine che Home Assistant si aspetta per le richieste proxy. Usa l'IP del router se il modulo è dietro NAT."
         }
       }

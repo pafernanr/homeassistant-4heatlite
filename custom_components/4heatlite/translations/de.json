@@ -45,10 +45,11 @@
         "data": {
           "proxy_mode": "Proxy-Modus",
           "module_address": "Erwartete Modul-IP",
-          "schedule_type": "Zeitplantyp",
+          "schedule_type": "Zeitplanprotokoll",
           "schedules": "Heizpläne"
         },
         "data_description": {
+          "schedule_type": "Manche Öfen unterstützen nur CCS, andere sowohl H24 als auch CCS. [Mehr Infos]({scheduling_url})",
           "module_address": "Quell-IP, von der Home Assistant Proxy-Anfragen erwartet. Bei NAT die Router-IP eintragen."
         }
       }

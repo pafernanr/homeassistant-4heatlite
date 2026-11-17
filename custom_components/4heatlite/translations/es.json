@@ -45,10 +45,11 @@
         "data": {
           "proxy_mode": "Modo proxy",
           "module_address": "IP esperada del módulo",
-          "schedule_type": "Tipo de horario",
+          "schedule_type": "Protocolo de calendario",
           "schedules": "Horarios de calefacción"
         },
         "data_description": {
+          "schedule_type": "Algunas estufas solo admiten CCS y otras admiten H24 y CCS. [Más info]({scheduling_url})",
           "module_address": "IP de origen que Home Assistant espera para las peticiones proxy. Usa la IP del router si el módulo está detrás de NAT."
         }
       }
