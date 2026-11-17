@@ -276,6 +276,11 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_DIRECT)
             schedules_data = user_input.get("schedules")
+            if isinstance(schedules_data, dict):
+                schedules_data = {
+                    **schedules_data,
+                    "protocol": user_input.get("schedule_type", PROTOCOL_H24),
+                }
 
             err = FourHeatLiteApi.validate_schedules_config(schedules_data)
             if err:
@@ -344,10 +349,17 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         )
         if user_input is not None:
             current_schedules = user_input.get("schedules")
+            current_type = user_input.get("schedule_type", PROTOCOL_H24)
         else:
             current_schedules = await self._refresh_schedules_from_stove(errors)
+            current_type = PROTOCOL_H24
         if not isinstance(current_schedules, dict):
             current_schedules = FourHeatLiteApi.schedules_from_stove(None)
+        if user_input is None:
+            current_type = current_schedules.get("protocol", PROTOCOL_H24)
+        current_schedules = {
+            k: v for k, v in current_schedules.items() if k != "protocol"
+        }
 
         return self.async_show_form(
             step_id="init",
@@ -365,6 +377,10 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                         CONF_MODULE_ADDRESS,
                         default=current_module_addr,
                     ): str,
+                    vol.Optional(
+                        "schedule_type",
+                        default=current_type,
+                    ): vol.In({PROTOCOL_H24: "H24", PROTOCOL_CCS: "CCS"}),
                     vol.Optional(
                         "schedules",
                         default=current_schedules,

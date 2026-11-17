@@ -45,6 +45,7 @@
         "data": {
           "proxy_mode": "Modo proxy",
           "module_address": "IP esperada del módulo",
+          "schedule_type": "Tipo de horario",
           "schedules": "Horarios de calefacción"
         },
         "data_description": {

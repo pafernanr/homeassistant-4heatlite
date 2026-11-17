@@ -45,6 +45,7 @@
         "data": {
           "proxy_mode": "Proxy-Modus",
           "module_address": "Erwartete Modul-IP",
+          "schedule_type": "Zeitplantyp",
           "schedules": "Heizpläne"
         },
         "data_description": {

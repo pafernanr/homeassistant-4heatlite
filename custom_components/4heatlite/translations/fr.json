@@ -45,6 +45,7 @@
         "data": {
           "proxy_mode": "Mode proxy",
           "module_address": "IP attendue du module",
+          "schedule_type": "Type de programme",
           "schedules": "Programmes de chauffage"
         },
         "data_description": {

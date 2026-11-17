@@ -166,7 +166,6 @@ See [Scheduling](docs/SCHEDULING.md) for the H24/CCS protocol details.
 Schedule YAML example (paste into the Heating Schedules editor):
 
 ```yaml
-protocol: h24   # h24 | ccs
 h24:
   - name: autumn
     active: true
@@ -204,7 +203,7 @@ ccs:   # max 3 slots per group
       - {start: "09:00", end: "12:00", enabled: true}
 ```
 
-Several entries may exist per protocol, but only one entry in the whole file can have `active: true`. The active entry is sent to the stove on save. Set all to `active: false` to disable the schedule (sent in the selected `protocol` format).
+Several entries may exist per protocol, but only one entry in the whole file can have `active: true`. The protocol to use is chosen with the **Schedule Type** radio button (H24 / CCS) above the YAML editor; it is not part of the YAML. The active entry is sent to the stove on save. Set all to `active: false` to disable the schedule (sent in the selected Schedule Type format).
 
 ### Command Delivery Methods
 
