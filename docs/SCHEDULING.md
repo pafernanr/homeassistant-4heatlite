@@ -92,20 +92,32 @@ count = 57 pairs × 2 + 5 = **119**. This defines 4 daily slots (07:30–09:30, 
 Used by the "Crono" page in the mobile app. Defines 3 time slots per day with enable/disable flags.
 
 ```
-["CCS","<count>","<period>","<day>","<start1>","<end1>","<check1>","<start2>","<end2>","<check2>","<start3>","<end3>","<check3>", ...]
+["CCS","71","<period>","<day1>","<start1>","<end1>","<check1>","<start2>","<end2>","<check2>","<start3>","<end3>","<check3>", "<day2>", ... "<day7>", ...]
 ```
+
+Captured on `estufa.lan` (write from app, reply `["CCS","1","OK"]`; read `["CCG","0"]` returns the same shape with token `CCG`).
 
 | Field | Description |
 |-------|-------------|
-| `count` | Total element count (period + 7 days × 10 fields) |
-| `period` | Timer mode: `0`=disabled, `1`=per-day, `2`=weekly, `3`=weekday/weekend |
-| `day` | Day number (1–7) |
-| `startN/endN` | Time range in `HH:MM` format |
-| `checkN` | Slot enabled: `0`=off, `1`=on |
+| `count` | `"71"` = 1 (period) + 7 days × 10 fields |
+| `period` | Mode, observed: `0`=disabled (app toggle off; slot data kept, reply `OK`), `1`=daily (app DAILY tab), `2`=weekly (app WEEKLY tab), `3`=weekend (app WEEKEND tab, Mon–Fri block shared) |
+| `dayN` | Day index, `1`–`7` (Mon=1 … Sun=7) |
+| `startN/endN` | `HH:MM` strings, e.g. `"00:00"`, `"08:00"` |
+| `checkN` | Slot enabled: `1`=on, `0`=off. Unused slots are `"00:00","00:00","0"` |
 
-When `period=0`, the schedule is stored but inactive — the module ignores all time slots. The mobile app uses this to "disable" without erasing slot data.
+Each day block is `dayN` followed by 3 slots of `start,end,check`. Each day is always written, even when all slots are off.
 
-Read via `["CCG","0"]` — response starts with `"CCS"` or `"CCG"` (same format).
+Example (daily, Monday slot 1 `00:00–00:59` enabled, all else empty):
+
+```
+["CCS","71","1","1","00:00","00:59","1","00:00","00:00","0","00:00","00:00","0","2","00:00","00:00","0","00:00","00:00","0","00:00","00:00","0", ...]
+```
+
+Read via `["CCG","0"]` — same shape, token `CCG`. The module also uploads it to `POST /api/devices/cron` as `{"key":"<DeviceKey>","comando":["CCG",...]}`.
+
+Weekend example (`period=3`, app WEEKEND tab with MON–FRI selected, slot 1 `00:00–00:30` enabled): days 1–5 carry `"00:00","00:30","1"`, days 6–7 are empty. The app writes all 7 day blocks in every mode.
+
+`period=0` (disabled) is captured: the app writes `["CCS","71","0",…]` with the slot data kept (`day1` slot 1 `00:00–00:59` still `1`), and the stove replies `["CCS","1","OK"]`.
 
 ## Reading the schedule
 
@@ -139,7 +151,7 @@ The queue response must use compact JSON (`separators=(",",":")`) to fit within 
 
 The mobile app disables the schedule by sending a CCS command with `period=0`, which overwrites whatever schedule is active (including H24) with a disabled CCS. The app caches the schedule locally and re-sends it to re-enable.
 
-**This integration uses H24 only.** Instead of switching to CCS, disabling sends an H24 command with two OFF transitions (minimum required). The ECO/COMFORT/COMFORT2 temperatures from the current schedule are preserved in the command:
+**Disabling:** `["H24",...]` with two OFF transitions is used when H24 is the selected protocol (the app itself uses CCS `period=0`). When CCS is the selected protocol the integration sends the CCS disable command with `period=0` and empty slots, in the same format as the app. The ECO/COMFORT/COMFORT2 temperatures of the previous H24 schedule are preserved in the H24 form:
 
 ```
 ["H24","9","#13","0","<ECO>","<COMFORT>","<COMFORT2>","0","0","0","0"]
@@ -147,7 +159,7 @@ The mobile app disables the schedule by sending a CCS command with `period=0`, w
 
 count = 2 pairs × 2 + 5 = **9**.
 
-The schedule data is cached in the HA config entry options. Setting `active: true` on a schedule in the options YAML editor sends it to the stove; setting all schedules to `active: false` sends the disable command.
+The schedules (both protocols) are stored in the HA config entry options under `schedules` (`protocol`, `h24`, `ccs`). On the first start after install the integration reads the stove once: a CCS reply adds a disabled default `h24` section, an H24 reply adds a disabled default `ccs` section (YAML only, nothing is written to the stove). The stove stores only one schedule at a time, and stoves may support only CCS or both. Setting `active: true` on one entry sends it to the stove; enabling both an H24 and a CCS entry is an error. Setting all entries to `active: false` sends the disable command of the selected `protocol`. If the stove answers `ERR` (other than busy, code 4) the write is treated as unsupported: an error is shown and the previous schedule is kept.
 
 ## Proxy behavior
 
@@ -157,4 +169,4 @@ The schedule data is cached in the HA config entry options. Setting `active: tru
 | `cloud_keepalive` | Acknowledge only (not mirrored) | Return local fallback with dynamic timezone offset |
 | `local_only` | Acknowledge only (not mirrored) | Return local fallback with dynamic timezone offset |
 
-The proxy parses H24 data from `POST /api/devices/cron` and caches it in `device_entry["last_schedule"]`. This cache is used by the options flow and `get_schedule` service. The schedule can also be read directly from the module via TCP (`["CCG","0"]`).
+The proxy parses H24 and CCS/CCG data from `POST /api/devices/cron` and caches it (with a `protocol` key) in `device_entry["last_schedule"]`. The `get_schedule` service reads the stove over TCP first (`["CCG","0"]`) and falls back to this cache.

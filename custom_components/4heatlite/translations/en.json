@@ -41,7 +41,7 @@
   "options": {
     "step": {
       "init": {
-        "description": "Cloud Keepalive and Local Only modes require DNS/DNAT setup. See [Proxy Modes documentation]({proxy_modes_url}).",
+        "description": "Cloud Keepalive and Local Only modes require DNS/DNAT setup. See [Proxy Modes documentation]({proxy_modes_url}).\n\nSchedules: the stove stores only one schedule at a time, either H24 or CCS. Enable only one entry at a time. Switching protocol replaces the schedule stored on the stove. Protocol detected on the stove: {detected_protocol}.",
         "data": {
           "proxy_mode": "Proxy Mode",
           "module_address": "Expected module IP",
@@ -53,7 +53,12 @@
       }
     },
     "error": {
-      "invalid_schedule": "Invalid schedule format. Required keys: eco, comfort, comfort2, slots.",
+      "invalid_schedule": "Invalid schedule format. Check the schedule YAML structure.",
+      "invalid_protocol": "Schedule protocol must be h24 or ccs.",
+      "too_many_slots": "Too many time slots in one group (CCS allows 3 per day group).",
+      "both_protocols_active": "H24 and CCS schedules cannot both be enabled. Enable only one.",
+      "protocol_mismatch": "The enabled schedule does not match the selected protocol.",
+      "schedule_rejected": "The stove rejected the schedule (unsupported protocol?). The previous schedule was kept.",
       "invalid_temperature": "Temperature values must be between 10.0 and 40.0.",
       "invalid_time": "Time values must be in HH:MM format with start before end.",
       "invalid_day": "Day names must be: mon, tue, wed, thu, fri, sat, sun.",

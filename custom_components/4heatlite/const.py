@@ -94,8 +94,10 @@ CONF_CACHED_SCHEDULE = "cached_schedule"  # v2 migration only
 # The register the panel's fan setting lives in: 0e038c (-7..+7) on a Ferlux
 # SYEVO0000559, whose 0e023f never moves. The number entity is created on it.
 DEFAULT_FAN_REGISTER = "0e038c"
-CONF_ACTIVE_SCHEDULE = "active_schedule"
-CONF_CACHED_SCHEDULES = "cached_schedules"
+CONF_ACTIVE_SCHEDULE = "active_schedule"  # migration only
+CONF_CACHED_SCHEDULES = "cached_schedules"  # migration only
+# {"protocol": "h24"|"ccs", "h24": [entries], "ccs": [entries]}
+CONF_SCHEDULES = "schedules"
 NUM_SCHEDULE_SLOTS = 3
 PROXY_MODE_DIRECT = "direct"
 PROXY_MODE_LOCAL = "local_only"
@@ -134,6 +136,15 @@ DAY_NAMES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 DAY_OFFSETS = {name: i * MINUTES_PER_DAY for i, name in enumerate(DAY_NAMES)}
 BAND_NAMES = ["off", "eco", "comfort", "comfort2"]
 TEMP_SCALE = 10
+# The stove stores one schedule at a time, in one of two protocols.
+PROTOCOL_H24 = "h24"
+PROTOCOL_CCS = "ccs"
+SCHEDULE_PROTOCOLS = [PROTOCOL_H24, PROTOCOL_CCS]
+# CCS wire value of the timer mode ("period" field)
+CCS_PERIODS = {"off": 0, "daily": 1, "weekly": 2, "weekend": 3}
+CCS_SLOTS_PER_GROUP = 3
+CCS_WEEKDAYS = DAY_NAMES[:5]
+CCS_WEEKEND_DAYS = DAY_NAMES[5:]
 SERVICE_GET_SCHEDULE = "get_schedule"
 SERVICE_SET_SCHEDULE = "set_schedule"
 

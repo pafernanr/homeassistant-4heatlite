@@ -41,7 +41,7 @@
   "options": {
     "step": {
       "init": {
-        "description": "Die Modi „Cloud Keepalive“ und „Local Only“ erfordern eine DNS-/DNAT-Einrichtung. Siehe [Dokumentation zu den Proxy-Modi]({proxy_modes_url}).",
+        "description": "Die Modi „Cloud Keepalive“ und „Local Only“ erfordern eine DNS-/DNAT-Einrichtung. Siehe [Dokumentation zu den Proxy-Modi]({proxy_modes_url}).\n\nZeitpläne: Der Ofen speichert immer nur einen Zeitplan, entweder H24 oder CCS. Aktivieren Sie nur einen Eintrag gleichzeitig. Ein Protokollwechsel ersetzt den im Ofen gespeicherten Zeitplan. Im Ofen erkanntes Protokoll: {detected_protocol}.",
         "data": {
           "proxy_mode": "Proxy-Modus",
           "module_address": "Erwartete Modul-IP",
@@ -53,7 +53,12 @@
       }
     },
     "error": {
-      "invalid_schedule": "Ungültiges Zeitplanformat. Erforderliche Schlüssel: eco, comfort, comfort2, slots.",
+      "invalid_schedule": "Ungültiges Zeitplanformat. Prüfen Sie die YAML-Struktur des Zeitplans.",
+      "invalid_protocol": "Das Zeitplanprotokoll muss h24 oder ccs sein.",
+      "too_many_slots": "Zu viele Zeitfenster in einer Gruppe (CCS erlaubt 3 pro Tagesgruppe).",
+      "both_protocols_active": "H24- und CCS-Zeitplan dürfen nicht gleichzeitig aktiv sein. Aktivieren Sie nur einen.",
+      "protocol_mismatch": "Der aktive Zeitplan passt nicht zum gewählten Protokoll.",
+      "schedule_rejected": "Der Ofen hat den Zeitplan abgelehnt (Protokoll nicht unterstützt?). Der bisherige Zeitplan wurde beibehalten.",
       "invalid_temperature": "Temperaturen müssen zwischen 10,0 und 40,0 liegen.",
       "invalid_time": "Zeiten müssen im Format HH:MM angegeben werden, Start vor Ende.",
       "invalid_day": "Erlaubte Tage: mon, tue, wed, thu, fri, sat, sun.",

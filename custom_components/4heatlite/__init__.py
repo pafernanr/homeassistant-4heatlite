@@ -21,12 +21,16 @@ from .const import (
     CONF_MODULE_ADDRESS,
     CONF_PROXY_MODE,
     CONF_SCHEDULE_ENABLED,
+    CONF_SCHEDULES,
     DATA_COORDINATOR,
     DOMAIN,
     NUM_SCHEDULE_SLOTS,
+    PROTOCOL_CCS,
+    PROTOCOL_H24,
     PROXY_MODE_DIRECT,
     PROXY_MODE_KEEPALIVE,
     PROXY_MODE_LOCAL,
+    SCHEDULE_PROTOCOLS,
     SERVICE_GET_SCHEDULE,
     SERVICE_SET_SCHEDULE,
 )
@@ -141,6 +145,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     await hass.config_entries.async_forward_entry_setups(entry, platforms)
 
+    # Once, after install: seed the schedules option from the stove. Runs
+    # before the update listener is added so it does not trigger a reload.
+    if CONF_SCHEDULES not in entry.options:
+        parsed = await hass.async_add_executor_job(coordinator.api.query_schedule)
+        if parsed is not None:
+            device_entry["last_schedule"] = parsed
+            hass.config_entries.async_update_entry(
+                entry,
+                options={
+                    **entry.options,
+                    CONF_SCHEDULES: FourHeatLiteApi.schedules_from_stove(parsed),
+                },
+            )
+
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
     return True
@@ -187,18 +205,21 @@ def _register_services(hass: HomeAssistant) -> None:
         )
 
         schedule = None
-        if device_entry:
+        coordinator = entry_data.get(DATA_COORDINATOR)
+        if coordinator:
+            schedule = await hass.async_add_executor_job(
+                coordinator.api.query_schedule
+            )
+        if schedule is not None and device_entry is not None:
+            device_entry["last_schedule"] = schedule
+        if schedule is None and device_entry:
             schedule = device_entry.get("last_schedule")
 
         if schedule is None:
-            coordinator = entry_data.get(DATA_COORDINATOR)
-            if coordinator:
-                schedule = await hass.async_add_executor_job(
-                    coordinator.api.query_schedule
-                )
-
-        if schedule is None:
-            raise HomeAssistantError("Failed to read schedule from module")
+            raise HomeAssistantError(
+                "Failed to read schedule from module: no reply, or unsupported "
+                "or malformed response"
+            )
 
         return schedule
 
@@ -208,12 +229,20 @@ def _register_services(hass: HomeAssistant) -> None:
         )
 
         schedule = call.data["schedule"]
-        error = FourHeatLiteApi.validate_schedule(schedule)
+        protocol = call.data["protocol"]
+        if protocol == PROTOCOL_CCS:
+            error = FourHeatLiteApi.validate_ccs_schedule(schedule)
+        else:
+            error = FourHeatLiteApi.validate_schedule(schedule)
         if error:
             raise HomeAssistantError(f"Invalid schedule: {error}")
 
-        program_index = call.data.get("program_index", 0)
-        cmd = FourHeatLiteApi.build_schedule_command(schedule, program_index)
+        if protocol == PROTOCOL_CCS:
+            cmd = FourHeatLiteApi.build_ccs_command(schedule)
+        else:
+            cmd = FourHeatLiteApi.build_schedule_command(
+                schedule, call.data.get("program_index", 0)
+            )
         coordinator = entry_data.get(DATA_COORDINATOR)
 
         tcp_ok = False
@@ -221,6 +250,11 @@ def _register_services(hass: HomeAssistant) -> None:
             result = await hass.async_add_executor_job(
                 coordinator.api.send_command, cmd
             )
+            if FourHeatLiteApi.is_command_rejected(result):
+                raise HomeAssistantError(
+                    f"The stove rejected the {protocol.upper()} schedule (the "
+                    "protocol may be unsupported). The previous schedule was kept."
+                )
             if result and len(result) >= 3 and str(result[2]) == "OK":
                 tcp_ok = True
 
@@ -240,7 +274,7 @@ def _register_services(hass: HomeAssistant) -> None:
             )
 
         if device_entry:
-            device_entry["last_schedule"] = schedule
+            device_entry["last_schedule"] = {**schedule, "protocol": protocol}
 
     hass.services.async_register(
         DOMAIN,
@@ -258,6 +292,9 @@ def _register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema({
             vol.Optional("config_entry_id"): cv.string,
             vol.Required("schedule"): dict,
+            vol.Optional("protocol", default=PROTOCOL_H24): vol.In(
+                SCHEDULE_PROTOCOLS
+            ),
             vol.Optional("program_index", default=0): vol.All(
                 int, vol.Range(min=0, max=NUM_SCHEDULE_SLOTS - 1)
             ),

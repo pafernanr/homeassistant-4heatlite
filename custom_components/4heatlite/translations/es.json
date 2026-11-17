@@ -41,7 +41,7 @@
   "options": {
     "step": {
       "init": {
-        "description": "Los modos «Cloud Keepalive» y «Local Only» requieren configurar DNS/DNAT. Consulta la [documentación de los modos proxy]({proxy_modes_url}).",
+        "description": "Los modos «Cloud Keepalive» y «Local Only» requieren configurar DNS/DNAT. Consulta la [documentación de los modos proxy]({proxy_modes_url}).\n\nHorarios: la estufa guarda un solo horario a la vez, H24 o CCS. Activa solo una entrada a la vez. Cambiar de protocolo reemplaza el horario guardado en la estufa. Protocolo detectado en la estufa: {detected_protocol}.",
         "data": {
           "proxy_mode": "Modo proxy",
           "module_address": "IP esperada del módulo",
@@ -53,7 +53,12 @@
       }
     },
     "error": {
-      "invalid_schedule": "Formato de horario no válido. Claves obligatorias: eco, comfort, comfort2, slots.",
+      "invalid_schedule": "Formato de horario no válido. Revisa la estructura del YAML del horario.",
+      "invalid_protocol": "El protocolo del horario debe ser h24 o ccs.",
+      "too_many_slots": "Demasiadas franjas en un grupo (CCS permite 3 por grupo de días).",
+      "both_protocols_active": "Los horarios H24 y CCS no pueden estar activos a la vez. Activa solo uno.",
+      "protocol_mismatch": "El horario activo no coincide con el protocolo seleccionado.",
+      "schedule_rejected": "La estufa rechazó el horario (¿protocolo no soportado?). Se mantuvo el horario anterior.",
       "invalid_temperature": "Los valores de temperatura deben estar entre 10,0 y 40,0.",
       "invalid_time": "Las horas deben tener el formato HH:MM, con inicio anterior al fin.",
       "invalid_day": "Los días deben ser: mon, tue, wed, thu, fri, sat, sun.",

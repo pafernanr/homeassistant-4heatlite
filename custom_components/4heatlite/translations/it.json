@@ -41,7 +41,7 @@
   "options": {
     "step": {
       "init": {
-        "description": "Le modalità «Cloud Keepalive» e «Local Only» richiedono la configurazione di DNS/DNAT. Vedi la [documentazione sulle modalità proxy]({proxy_modes_url}).",
+        "description": "Le modalità «Cloud Keepalive» e «Local Only» richiedono la configurazione di DNS/DNAT. Vedi la [documentazione sulle modalità proxy]({proxy_modes_url}).\n\nProgrammi: la stufa memorizza un solo programma alla volta, H24 o CCS. Abilita una sola voce alla volta. Cambiare protocollo sostituisce il programma memorizzato nella stufa. Protocollo rilevato sulla stufa: {detected_protocol}.",
         "data": {
           "proxy_mode": "Modalità proxy",
           "module_address": "IP previsto del modulo",
@@ -53,7 +53,12 @@
       }
     },
     "error": {
-      "invalid_schedule": "Formato del programma non valido. Chiavi richieste: eco, comfort, comfort2, slots.",
+      "invalid_schedule": "Formato del programma non valido. Controlla la struttura YAML del programma.",
+      "invalid_protocol": "Il protocollo del programma deve essere h24 o ccs.",
+      "too_many_slots": "Troppe fasce in un gruppo (CCS ne consente 3 per gruppo di giorni).",
+      "both_protocols_active": "I programmi H24 e CCS non possono essere attivi insieme. Abilitane uno solo.",
+      "protocol_mismatch": "Il programma attivo non corrisponde al protocollo selezionato.",
+      "schedule_rejected": "La stufa ha rifiutato il programma (protocollo non supportato?). Il programma precedente è stato mantenuto.",
       "invalid_temperature": "I valori di temperatura devono essere compresi tra 10,0 e 40,0.",
       "invalid_time": "Gli orari devono essere nel formato HH:MM, con inizio prima della fine.",
       "invalid_day": "I giorni devono essere: mon, tue, wed, thu, fri, sat, sun.",

@@ -1,6 +1,6 @@
 get_schedule:
   name: Get Schedule
-  description: Read the current weekly heating schedule from the stove module.
+  description: Read the current heating schedule (H24 or CCS) from the stove module. The result includes a protocol key.
   fields:
     config_entry_id:
       name: Config Entry ID
@@ -11,7 +11,7 @@ get_schedule:
 
 set_schedule:
   name: Set Schedule
-  description: Write a weekly heating schedule to the stove module.
+  description: Write a heating schedule (H24 or CCS) to the stove module. The stove stores one schedule at a time; writing replaces it.
   fields:
     config_entry_id:
       name: Config Entry ID
@@ -19,9 +19,19 @@ set_schedule:
       required: false
       selector:
         text:
+    protocol:
+      name: Protocol
+      description: "Schedule protocol: h24 (default) or ccs. Not every stove supports both."
+      required: false
+      default: h24
+      selector:
+        select:
+          options:
+            - h24
+            - ccs
     schedule:
       name: Schedule
-      description: "Schedule as YAML with keys: eco, comfort, comfort2 (temperatures), and slots (list with days, start, end, band)."
+      description: "H24: eco, comfort, comfort2 (temperatures) and slots (list with days, start, end, band). CCS: period (daily, weekly or weekend) plus daily_slots, weekly_slots, or workday_slots and weekend_slots."
       required: true
       selector:
         object:

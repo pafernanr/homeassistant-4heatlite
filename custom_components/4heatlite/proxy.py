@@ -411,8 +411,12 @@ class StoveCronView(HomeAssistantView):
                        json.dumps(body, separators=(",", ":")) if isinstance(body, dict) else str(body))
 
         command = body.get("Command") if isinstance(body, dict) else body
-        if isinstance(command, list) and command and str(command[0]) == "H24":
-            parsed = FourHeatLiteApi.parse_h24_response(command)
+        if (
+            isinstance(command, list)
+            and command
+            and str(command[0]) in ("H24", "CCS", "CCG")
+        ):
+            parsed = FourHeatLiteApi.parse_schedule_response(command)
             if parsed and entry:
                 entry["last_schedule"] = parsed
                 _LOGGER.info("Cron: schedule stored for device %s", device_id)

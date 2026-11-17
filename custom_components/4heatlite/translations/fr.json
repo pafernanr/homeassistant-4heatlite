@@ -41,7 +41,7 @@
   "options": {
     "step": {
       "init": {
-        "description": "Les modes « Cloud Keepalive » et « Local Only » nécessitent une configuration DNS/DNAT. Voir la [documentation des modes proxy]({proxy_modes_url}).",
+        "description": "Les modes « Cloud Keepalive » et « Local Only » nécessitent une configuration DNS/DNAT. Voir la [documentation des modes proxy]({proxy_modes_url}).\n\nProgrammes : le poêle ne stocke qu'un seul programme à la fois, H24 ou CCS. N'activez qu'une seule entrée à la fois. Changer de protocole remplace le programme stocké dans le poêle. Protocole détecté sur le poêle : {detected_protocol}.",
         "data": {
           "proxy_mode": "Mode proxy",
           "module_address": "IP attendue du module",
@@ -53,7 +53,12 @@
       }
     },
     "error": {
-      "invalid_schedule": "Format de programme invalide. Clés requises : eco, comfort, comfort2, slots.",
+      "invalid_schedule": "Format de programme invalide. Vérifiez la structure YAML du programme.",
+      "invalid_protocol": "Le protocole du programme doit être h24 ou ccs.",
+      "too_many_slots": "Trop de plages dans un groupe (CCS en autorise 3 par groupe de jours).",
+      "both_protocols_active": "Les programmes H24 et CCS ne peuvent pas être actifs ensemble. N'en activez qu'un.",
+      "protocol_mismatch": "Le programme actif ne correspond pas au protocole sélectionné.",
+      "schedule_rejected": "Le poêle a rejeté le programme (protocole non pris en charge ?). Le programme précédent a été conservé.",
       "invalid_temperature": "Les températures doivent être comprises entre 10,0 et 40,0.",
       "invalid_time": "Les heures doivent être au format HH:MM, le début avant la fin.",
       "invalid_day": "Les jours doivent être : mon, tue, wed, thu, fri, sat, sun.",

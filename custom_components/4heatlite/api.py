@@ -8,10 +8,16 @@ import time
 
 from .const import (
     BAND_NAMES,
+    CCS_PERIODS,
+    CCS_SLOTS_PER_GROUP,
+    CCS_WEEKDAYS,
+    CCS_WEEKEND_DAYS,
     DAY_NAMES,
     DAY_OFFSETS,
     FAN_REGISTERS,
     MINUTES_PER_DAY,
+    PROTOCOL_CCS,
+    PROTOCOL_H24,
     QUERY_CONFIG,
     QUERY_EXHAUST,
     QUERY_MODULE_INFO,
@@ -25,6 +31,7 @@ from .const import (
     REGISTER_POWER,
     REGISTER_SENSORS,
     REGISTER_TEMP,
+    SCHEDULE_PROTOCOLS,
     SOCKET_BUFFER,
     SOCKET_TIMEOUT,
     TCP_PORT,
@@ -420,14 +427,320 @@ class FourHeatLiteApi:
             "0", "0", "0", "0",
         ]
 
+    @staticmethod
+    def is_command_rejected(result) -> bool:
+        """True if the stove answered ERR (busy, code 4, is not a rejection)."""
+        return (
+            isinstance(result, list)
+            and bool(result)
+            and str(result[0]) == "ERR"
+            and str(result[-1]) != "4"
+        )
+
     def query_schedule(self) -> dict | None:
-        """Query the module's weekly schedule via CCG/H24 protocol."""
+        """Query the module's schedule (CCG query) and parse H24 or CCS."""
         try:
             response = self._send(QUERY_SCHEDULE)
         except (OSError, json.JSONDecodeError, ValueError) as exc:
             _LOGGER.debug("Schedule query failed: %s", exc)
             return None
-        return self.parse_h24_response(response)
+        parsed = self.parse_schedule_response(response)
+        if parsed is None:
+            _LOGGER.warning(
+                "Unsupported or malformed schedule response: %s", response
+            )
+        return parsed
+
+    @staticmethod
+    def parse_schedule_response(response) -> dict | None:
+        """Parse an H24 or CCS/CCG schedule response; None if unsupported."""
+        if not isinstance(response, list) or not response:
+            return None
+        token = str(response[0])
+        if token == "H24":
+            return FourHeatLiteApi.parse_h24_response(response)
+        if token in ("CCS", "CCG"):
+            return FourHeatLiteApi.parse_ccs_response(response)
+        return None
+
+    @staticmethod
+    def _time_to_minutes(value) -> int | None:
+        """Minutes since midnight for a strict HH:MM string, else None."""
+        if not isinstance(value, str):
+            return None
+        parts = value.split(":")
+        if len(parts) != 2:
+            return None
+        try:
+            hour, minute = int(parts[0]), int(parts[1])
+        except ValueError:
+            return None
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            return None
+        return hour * 60 + minute
+
+    @staticmethod
+    def parse_ccs_response(response: list) -> dict | None:
+        """Parse a CCS/CCG response into a user-facing dict (period + slots)."""
+        day_fields = 1 + CCS_SLOTS_PER_GROUP * 3
+        if (
+            not isinstance(response, list)
+            or len(response) < 3 + len(DAY_NAMES) * day_fields
+        ):
+            return None
+        try:
+            period_raw = int(response[2])
+        except (TypeError, ValueError):
+            return None
+        period = next((k for k, v in CCS_PERIODS.items() if v == period_raw), None)
+        if period is None:
+            return None
+
+        days: dict[str, list] = {}
+        for i, day in enumerate(DAY_NAMES):
+            base = 3 + i * day_fields
+            try:
+                if int(response[base]) != i + 1:
+                    return None
+            except (TypeError, ValueError):
+                return None
+            slots = []
+            for j in range(CCS_SLOTS_PER_GROUP):
+                start, end, check = response[
+                    base + 1 + j * 3: base + 4 + j * 3
+                ]
+                if (
+                    FourHeatLiteApi._time_to_minutes(start) is None
+                    or FourHeatLiteApi._time_to_minutes(end) is None
+                ):
+                    return None
+                enabled = str(check) == "1"
+                if start == end == "00:00" and not enabled:
+                    continue
+                slots.append({"start": start, "end": end, "enabled": enabled})
+            days[day] = slots
+
+        result: dict = {"protocol": PROTOCOL_CCS, "period": period}
+        if period == "weekly":
+            result["weekly_slots"] = days["mon"]
+        elif period == "weekend":
+            result["workday_slots"] = days["mon"]
+            result["weekend_slots"] = days["sat"]
+        else:
+            result["daily_slots"] = {d: s for d, s in days.items() if s}
+        return result
+
+    @staticmethod
+    def build_ccs_command(schedule: dict) -> list:
+        """Encode a user-facing CCS schedule dict into a CCS command array."""
+        period = schedule.get("period", "off")
+        per_day: dict[str, list] = {day: [] for day in DAY_NAMES}
+        if period == "daily":
+            for day, slots in (schedule.get("daily_slots") or {}).items():
+                per_day[day] = list(slots or [])
+        elif period == "weekly":
+            for day in DAY_NAMES:
+                per_day[day] = list(schedule.get("weekly_slots") or [])
+        elif period == "weekend":
+            for day in CCS_WEEKDAYS:
+                per_day[day] = list(schedule.get("workday_slots") or [])
+            for day in CCS_WEEKEND_DAYS:
+                per_day[day] = list(schedule.get("weekend_slots") or [])
+
+        data = []
+        for i, day in enumerate(DAY_NAMES):
+            data.append(str(i + 1))
+            slots = per_day[day]
+            for j in range(CCS_SLOTS_PER_GROUP):
+                if j < len(slots):
+                    start = FourHeatLiteApi._time_to_minutes(slots[j]["start"])
+                    end = FourHeatLiteApi._time_to_minutes(slots[j]["end"])
+                    data.extend([
+                        f"{start // 60:02d}:{start % 60:02d}",
+                        f"{end // 60:02d}:{end % 60:02d}",
+                        "1" if slots[j].get("enabled", True) else "0",
+                    ])
+                else:
+                    data.extend(["00:00", "00:00", "0"])
+        return ["CCS", str(len(data) + 1), str(CCS_PERIODS[period]), *data]
+
+    @staticmethod
+    def build_disable_ccs_command() -> list:
+        """Build CCS command with period 0 (disabled) and no slots."""
+        return FourHeatLiteApi.build_ccs_command({"period": "off"})
+
+    @staticmethod
+    def _validate_ccs_slots(slots) -> str | None:
+        """Validate one list of CCS slots (a group). Returns error or None."""
+        if slots is None:
+            return None
+        if not isinstance(slots, list):
+            return "invalid_schedule"
+        if len(slots) > CCS_SLOTS_PER_GROUP:
+            return "too_many_slots"
+        enabled_ranges = []
+        for slot in slots:
+            if not isinstance(slot, dict):
+                return "invalid_schedule"
+            start = FourHeatLiteApi._time_to_minutes(slot.get("start"))
+            end = FourHeatLiteApi._time_to_minutes(slot.get("end"))
+            if start is None or end is None or start >= end:
+                return "invalid_time"
+            enabled = slot.get("enabled", True)
+            if not isinstance(enabled, bool):
+                return "invalid_schedule"
+            if enabled:
+                enabled_ranges.append((start, end))
+        enabled_ranges.sort()
+        for i in range(len(enabled_ranges) - 1):
+            if enabled_ranges[i][1] > enabled_ranges[i + 1][0]:
+                return "overlapping_slots"
+        return None
+
+    @staticmethod
+    def validate_ccs_schedule(data) -> str | None:
+        """Validate a CCS schedule dict. Returns error string or None."""
+        if not isinstance(data, dict):
+            return "invalid_schedule"
+        period = data.get("period")
+        if period not in ("daily", "weekly", "weekend"):
+            return "invalid_schedule"
+        if period == "daily":
+            daily = data.get("daily_slots")
+            if daily is None:
+                return None
+            if not isinstance(daily, dict):
+                return "invalid_schedule"
+            for day, slots in daily.items():
+                if day not in DAY_NAMES:
+                    return "invalid_day"
+                err = FourHeatLiteApi._validate_ccs_slots(slots)
+                if err:
+                    return err
+            return None
+        keys = ("weekly_slots",) if period == "weekly" else (
+            "workday_slots", "weekend_slots"
+        )
+        for key in keys:
+            err = FourHeatLiteApi._validate_ccs_slots(data.get(key))
+            if err:
+                return err
+        return None
+
+    @staticmethod
+    def default_schedule_entry(protocol: str, name: str = "Schedule 1") -> dict:
+        """Disabled starter entry for a protocol."""
+        if protocol == PROTOCOL_CCS:
+            return {
+                "name": name,
+                "active": False,
+                "period": "weekly",
+                "weekly_slots": [
+                    {"start": "08:00", "end": "10:00", "enabled": False},
+                    {"start": "13:00", "end": "15:00", "enabled": False},
+                    {"start": "19:30", "end": "21:30", "enabled": False},
+                ],
+            }
+        return {
+            "name": name,
+            "active": False,
+            "eco": 18,
+            "comfort": 21,
+            "comfort2": 23,
+            "slots": [],
+        }
+
+    @staticmethod
+    def schedules_from_stove(parsed: dict | None) -> dict:
+        """Build the options structure, seeded from the stove's schedule.
+
+        The detected protocol gets the stove's schedule; the other protocol
+        gets a disabled starter entry. Nothing is written to the stove.
+        """
+        result = {
+            "protocol": PROTOCOL_H24,
+            PROTOCOL_H24: [FourHeatLiteApi.default_schedule_entry(PROTOCOL_H24)],
+            PROTOCOL_CCS: [FourHeatLiteApi.default_schedule_entry(PROTOCOL_CCS)],
+        }
+        protocol = (parsed or {}).get("protocol")
+        if protocol == PROTOCOL_H24:
+            entry = {
+                "name": "Stove",
+                "active": bool(parsed["slots"]),
+                "eco": parsed["eco"],
+                "comfort": parsed["comfort"],
+                "comfort2": parsed["comfort2"],
+                "slots": parsed["slots"],
+            }
+            if entry["active"] and FourHeatLiteApi.validate_schedule(entry):
+                entry["active"] = False
+            result[PROTOCOL_H24] = [entry]
+        elif protocol == PROTOCOL_CCS:
+            entry = {
+                k: v for k, v in parsed.items() if k not in ("protocol", "period")
+            }
+            off = parsed["period"] == "off"
+            entry = {
+                "name": "Stove",
+                "active": not off,
+                "period": "daily" if off else parsed["period"],
+                **entry,
+            }
+            result[PROTOCOL_CCS] = [entry]
+            result["protocol"] = PROTOCOL_CCS
+        return result
+
+    @staticmethod
+    def get_active_schedule(config) -> tuple[str, int, dict] | None:
+        """(protocol, index, entry) of the active schedule, or None."""
+        if not isinstance(config, dict):
+            return None
+        for protocol in SCHEDULE_PROTOCOLS:
+            for index, entry in enumerate(config.get(protocol) or []):
+                if isinstance(entry, dict) and entry.get("active"):
+                    return protocol, index, entry
+        return None
+
+    @staticmethod
+    def validate_schedules_config(data) -> str | None:
+        """Validate the whole schedules option. Returns error string or None."""
+        if not isinstance(data, dict):
+            return "invalid_schedule"
+        protocol = data.get("protocol", PROTOCOL_H24)
+        if protocol not in SCHEDULE_PROTOCOLS:
+            return "invalid_protocol"
+
+        active = {PROTOCOL_H24: 0, PROTOCOL_CCS: 0}
+        for proto in SCHEDULE_PROTOCOLS:
+            entries = data.get(proto)
+            if entries is None:
+                continue
+            if not isinstance(entries, list):
+                return "invalid_schedule"
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    return "invalid_schedule"
+                if proto == PROTOCOL_H24:
+                    err = (
+                        FourHeatLiteApi.validate_schedule(entry)
+                        if entry.get("slots") or entry.get("active")
+                        else None
+                    )
+                else:
+                    err = FourHeatLiteApi.validate_ccs_schedule(entry)
+                if err:
+                    return err
+                if entry.get("active"):
+                    active[proto] += 1
+
+        if active[PROTOCOL_H24] and active[PROTOCOL_CCS]:
+            return "both_protocols_active"
+        if max(active.values()) > 1:
+            return "multiple_active"
+        for proto, count in active.items():
+            if count and proto != protocol:
+                return "protocol_mismatch"
+        return None
 
     @staticmethod
     def parse_h24_response(response: list) -> dict | None:
@@ -511,6 +824,7 @@ class FourHeatLiteApi:
         ))
 
         return {
+            "protocol": PROTOCOL_H24,
             "program_index": program_index,
             "eco": eco_raw / TEMP_SCALE,
             "comfort": comfort_raw / TEMP_SCALE,

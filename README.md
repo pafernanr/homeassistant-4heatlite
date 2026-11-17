@@ -154,47 +154,57 @@ All write commands are available via the [climate entity](docs/SENSORS.md#climat
 
 ### Schedule Management
 
-View and edit the stove's weekly heating schedule (H24 program) directly from HA. Schedules are delivered via [dual delivery](#command-delivery-methods) — TCP direct (immediate) + command queue (backup).
+View and edit the stove's heating schedule directly from HA. Two schedule protocols exist: **H24** (default) and **CCS**. Not every stove supports both, and the stove stores only one schedule at a time. Schedules are delivered via [dual delivery](#command-delivery-methods) — TCP direct (immediate) + command queue (backup).
 
-- **Options Flow**: YAML editor pre-populated with the current schedule
-- **Services**: `4heatlite.get_schedule` and `4heatlite.set_schedule` for automations
+- **Options Flow**: YAML editor pre-populated with the schedules (on first start the integration reads the stove and adds a disabled default section for the other protocol)
+- **Services**: `4heatlite.get_schedule` and `4heatlite.set_schedule` (optional `protocol: h24|ccs`) for automations
 
-See [Scheduling](docs/SCHEDULING.md) for the H24/CCG protocol details.
+See [Scheduling](docs/SCHEDULING.md) for the H24/CCS protocol details.
+
+> **Warning:** only one schedule (H24 or CCS) can be enabled at a time. Enabling an entry of the other protocol replaces the schedule stored on the stove. If the stove does not support the protocol it rejects the write, the previous schedule is kept and an error is shown.
 
 Schedule YAML example (paste into the Heating Schedules editor):
 
 ```yaml
-- name: autumn
-  active: true
-  comfort: 23.0
-  comfort2: 24.0
-  eco: 18.0
-  slots:
-    - band: comfort
-      days: [mon, tue, wed, thu, fri]
-      start: "07:30"
-      end: "09:30"
-    - band: comfort
-      days: [mon, tue, wed, thu, fri]
-      start: "19:00"
-      end: "22:00"
-    - band: eco
-      days: [sat, sun]
-      start: "08:00"
-      end: "23:00"
-- name: winter
-  active: false
-  comfort: 23.0
-  comfort2: 25.0
-  eco: 19.0
-  slots:
-    - band: comfort2
-      days: [mon, tue, wed, thu, fri, sat, sun]
-      start: "07:00"
-      end: "23:00"
+protocol: h24   # h24 | ccs
+h24:
+  - name: autumn
+    active: true
+    comfort: 23.0
+    comfort2: 24.0
+    eco: 18.0
+    slots:
+      - band: comfort
+        days: [mon, tue, wed, thu, fri]
+        start: "07:30"
+        end: "09:30"
+      - band: eco
+        days: [sat, sun]
+        start: "08:00"
+        end: "23:00"
+ccs:   # max 3 slots per group
+  - name: salon-weekly
+    active: false
+    period: weekly          # daily | weekly | weekend
+    weekly_slots:
+      - {start: "08:00", end: "10:00", enabled: true}
+      - {start: "19:30", end: "21:30", enabled: true}
+  - name: salon-daily
+    active: false
+    period: daily           # omitted days are disabled
+    daily_slots:
+      mon:
+        - {start: "08:00", end: "10:00", enabled: true}
+  - name: salon-weekend
+    active: false
+    period: weekend         # workday_slots (Mon-Fri) + weekend_slots (Sat-Sun)
+    workday_slots:
+      - {start: "08:00", end: "10:00", enabled: true}
+    weekend_slots:
+      - {start: "09:00", end: "12:00", enabled: true}
 ```
 
-Only one schedule can have `active: true`. The active schedule is sent to the stove on save. Set all to `active: false` to disable the schedule.
+Several entries may exist per protocol, but only one entry in the whole file can have `active: true`. The active entry is sent to the stove on save. Set all to `active: false` to disable the schedule (sent in the selected `protocol` format).
 
 ### Command Delivery Methods
 
