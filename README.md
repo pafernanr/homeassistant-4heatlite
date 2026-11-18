@@ -156,7 +156,7 @@ All write commands are available via the [climate entity](docs/SENSORS.md#climat
 
 View and edit the stove's heating schedule directly from HA. Two schedule protocols exist: **H24** (default) and **CCS**. Not every stove supports both, and the stove stores only one schedule at a time. Schedules are delivered via [dual delivery](#command-delivery-methods) — TCP direct (immediate) + command queue (backup).
 
-- **Options Flow**: the stove is the source of truth. Each time the screen opens the integration reads the stove schedule and merges it into the saved YAML: the matching entry becomes the active one, or the stove schedule is appended to the end of its protocol list if it matches none. If the stove cannot be read, the saved YAML is shown with a warning.
+- **Options Flow**: the stove is the source of truth. Each time the screen opens the integration reads the stove schedule and merges it into the saved YAML: the matching entry becomes the active one, or the stove schedule is inserted at the start of its protocol list if it matches none. If the stove cannot be read, the saved YAML is shown with a warning.
 - **Services**: `4heatlite.get_schedule` and `4heatlite.set_schedule` (optional `protocol: h24|ccs`) for automations
 
 See [Scheduling](docs/SCHEDULING.md) for the H24/CCS protocol details.

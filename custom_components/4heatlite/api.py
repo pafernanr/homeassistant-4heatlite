@@ -788,7 +788,7 @@ class FourHeatLiteApi:
 
         The stove is the source of truth. The entry matching the stove
         schedule becomes the only active one; if none matches, the stove
-        schedule is appended to the end of its protocol section. A disabled
+        schedule is inserted at the start of its protocol list. A disabled
         stove schedule leaves every entry inactive. Returns a new dict.
         """
         if not isinstance(config, dict):
@@ -845,7 +845,7 @@ class FourHeatLiteApi:
                 and FourHeatLiteApi._schedule_signature(e) in defaults
             )
         ]
-        result[protocol].append(seeded)
+        result[protocol].insert(0, seeded)
         return result
 
     @staticmethod
