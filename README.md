@@ -156,81 +156,88 @@ All write commands are available via the [climate entity](docs/SENSORS.md#climat
 
 View and edit the stove's heating schedule directly from HA. Two schedule protocols exist: **H24** (default) and **CCS**. Not every stove supports both, and the stove stores only one schedule at a time. Schedules are delivered via [dual delivery](#command-delivery-methods) — TCP direct (immediate) + command queue (backup).
 
-- **Options Flow**: the stove is the source of truth. Each time the screen opens the integration reads the stove schedule and merges it into the saved YAML: the matching entry becomes the active one, or the stove schedule is appended to the end of its protocol section (`h24` or `ccs`) if it matches none. If the stove cannot be read, the saved YAML is shown with a warning.
+- **Options Flow**: the stove is the source of truth. Each time the screen opens the integration reads the stove schedule and merges it into the saved YAML: the matching entry becomes the active one, or the stove schedule is appended to the end of its protocol list if it matches none. If the stove cannot be read, the saved YAML is shown with a warning.
 - **Services**: `4heatlite.get_schedule` and `4heatlite.set_schedule` (optional `protocol: h24|ccs`) for automations
 
 See [Scheduling](docs/SCHEDULING.md) for the H24/CCS protocol details.
 
-> **Warning:** only one schedule (H24 or CCS) can be enabled at a time. Enabling an entry of the other protocol replaces the schedule stored on the stove. If the stove does not support the protocol it rejects the write, the previous schedule is kept and an error is shown.
+> **Warning:** the stove stores only one schedule (H24 or CCS) at a time. Selecting the other protocol replaces the schedule stored on the stove. If the stove does not support the protocol it rejects the write, the previous schedule is kept and an error is shown.
 
-Schedule YAML example:
+Choose the protocol with the **Schedule Protocol** radio button (Off / H24 / CCS). Step 2 of the options screen then shows only the YAML list of that protocol, a plain list of entries.
+
+#### H24 example
 
 ```yaml
-h24:
-  - name: Autumn
-    active: false
-    eco: 18
-    comfort: 21
-    comfort2: 23
-    slots:
-      - days: [mon, tue, wed, thu, fri]
-        start: '06:30'
-        end: '08:30'
-        band: comfort
-      - days: [mon, tue, wed, thu, fri]
-        start: '18:00'
-        end: '22:00'
-        band: comfort2
-      - days: [sat, sun]
-        start: '08:00'
-        end: '23:00'
-        band: comfort
-  - name: Winter
-    active: false
-    eco: 18
-    comfort: 21
-    comfort2: 23
-    slots:
-      - days: [mon, tue, wed, thu, fri]
-        start: '06:00'
-        end: '20:00'
-        band: comfort
-ccs:   # max 3 slots per group
-  - name: weekly (same every day)
-    active: false
-    period: weekly
-    weekly_slots:
-      - {start: '08:00', end: '10:00', enabled: true}
-      - {start: '13:00', end: '15:00', enabled: true}
-      - {start: '19:30', end: '21:30', enabled: true}
-  - name: weekend (Mon-Fri / Sat-Sun)
-    active: false
-    period: weekend
-    workday_slots:
-      - {start: '06:30', end: '08:30', enabled: true}
-      - {start: '18:00', end: '22:00', enabled: true}
-    weekend_slots:
-      - {start: '08:00', end: '23:00', enabled: true}
-  - name: daily (per day)
-    active: false
-    period: daily           # omitted days are disabled
-    daily_slots:
-      mon:
-        - {start: '06:30', end: '08:30', enabled: true}
-      sat:
-        - {start: '08:00', end: '23:00', enabled: true}
-      sun:
-        - {start: '08:00', end: '23:00', enabled: true}
-  - name: weekly vacation (same every day)
-    active: false
-    period: weekly
-    weekly_slots:
-      - {start: '08:00', end: '10:00', enabled: false}
-      - {start: '13:00', end: '15:00', enabled: false}
-      - {start: '19:30', end: '21:30', enabled: true}
+- name: Autumn
+  active: false
+  eco: 18
+  comfort: 21
+  comfort2: 23
+  slots:
+    - days: [mon, tue, wed, thu, fri]
+      from: '06:30'
+      to: '08:30'
+      band: comfort
+    - days: [mon, tue, wed, thu, fri]
+      from: '18:00'
+      to: '22:00'
+      band: comfort2
+    - days: [sat, sun]
+      from: '08:00'
+      to: '23:00'
+      band: comfort
+- name: Winter
+  active: false
+  eco: 18
+  comfort: 21
+  comfort2: 23
+  slots:
+    - days: [mon, tue, wed, thu, fri]
+      from: '06:00'
+      to: '20:00'
+      band: comfort
 ```
 
-Several entries may exist per protocol, but only one entry in the whole file can have `active: true`. The protocol to use is chosen with the **Schedule Type** radio button (Off / H24 / CCS) above the YAML editor; it is not part of the YAML. The active entry is sent to the stove on save. Set all to `active: false` or choose **Off** to disable the schedule.
+#### CCS example
+
+Max 3 slots per group.
+
+```yaml
+- name: weekly (same every day)
+  active: false
+  period: weekly
+  weekly_slots:
+    - {from: '08:00', to: '10:00', enabled: true}
+    - {from: '13:00', to: '15:00', enabled: true}
+    - {from: '19:30', to: '21:30', enabled: true}
+- name: weekend (Mon-Fri / Sat-Sun)
+  active: false
+  period: weekend
+  workday_slots:
+    - {from: '06:30', to: '08:30', enabled: true}
+    - {from: '18:00', to: '22:00', enabled: true}
+  weekend_slots:
+    - {from: '08:00', to: '23:00', enabled: true}
+- name: daily (per day)
+  active: false
+  period: daily           # omitted days are disabled
+  daily_slots:
+    mon:
+      - {from: '06:30', to: '08:30', enabled: true}
+    sat:
+      - {from: '08:00', to: '23:00', enabled: true}
+    sun:
+      - {from: '08:00', to: '23:00', enabled: true}
+- name: weekly vacation (same every day)
+  active: false
+  period: weekly
+  weekly_slots:
+    - {from: '08:00', to: '10:00', enabled: false}
+    - {from: '13:00', to: '15:00', enabled: false}
+    - {from: '19:30', to: '21:30', enabled: true}
+```
+
+A list may hold several entries (e.g. Autumn and Winter), but exactly one must have `active: true`. That entry is sent to the stove on save. Choose **Off** to disable the schedule; the lists stay unchanged.
 
 ### Command Delivery Methods
 

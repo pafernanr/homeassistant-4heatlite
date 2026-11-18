@@ -41,34 +41,42 @@
   "options": {
     "step": {
       "init": {
-        "description": "Le modalità «Cloud Keepalive» e «Local Only» richiedono la configurazione di DNS/DNAT. Vedi la [documentazione sulle modalità proxy]({proxy_modes_url}).\n\nProgrammi: la stufa memorizza un solo programma alla volta, H24 o CCS. Abilita una sola voce alla volta. Cambiare protocollo sostituisce il programma memorizzato nella stufa. Protocollo rilevato sulla stufa: {detected_protocol}.",
+        "description": "Le modalità «Cloud Keepalive» e «Local Only» richiedono la configurazione di DNS/DNAT. Vedi la [documentazione sulle modalità proxy]({proxy_modes_url}).",
         "data": {
           "proxy_mode": "Modalità proxy",
           "module_address": "IP previsto del modulo",
-          "schedule_type": "Protocollo del programma",
-          "schedules": "Programmi di riscaldamento"
+          "schedule_type": "Protocollo del programma"
         },
         "data_description": {
           "schedule_type": "Alcune stufe supportano solo H24, altre sia H24 che CCS. [Maggiori info]({scheduling_url})",
           "module_address": "IP di origine che Home Assistant si aspetta per le richieste proxy. Usa l'IP del router se il modulo è dietro NAT."
         }
+      },
+      "schedule": {
+        "title": "Programma",
+        "description": "Modifica il programma {protocol}. Imposta active: true su una sola voce. [Maggiori info]({scheduling_url})",
+        "data": {
+          "schedules_h24": "Programmi H24",
+          "schedules_ccs": "Programmi CCS"
+        }
       }
     },
     "error": {
-      "invalid_schedule": "Formato del programma non valido. Controlla la struttura YAML del programma.",
+      "invalid_schedule": "Formato del programma non valido. Controlla la struttura YAML del programma. Posizione: {location}",
+      "no_active_entry": "Nessuna voce attiva per questo protocollo. Imposta active: true su una voce, oppure scegli Off.",
       "invalid_protocol": "Il protocollo del programma deve essere h24 o ccs.",
-      "too_many_slots": "Troppe fasce in un gruppo (CCS ne consente 3 per gruppo di giorni).",
-      "both_protocols_active": "I programmi H24 e CCS non possono essere attivi insieme. Abilitane uno solo.",
-      "protocol_mismatch": "Il programma attivo non corrisponde al protocollo selezionato.",
+      "too_many_slots": "Troppe fasce in un gruppo (CCS ne consente 3 per gruppo di giorni). Posizione: {location}",
       "schedule_rejected": "La stufa ha rifiutato il programma (protocollo non supportato?). Il programma precedente è stato mantenuto.",
-      "invalid_temperature": "I valori di temperatura devono essere compresi tra 10,0 e 40,0.",
-      "invalid_time": "Gli orari devono essere nel formato HH:MM, con inizio prima della fine.",
-      "invalid_day": "I giorni devono essere: mon, tue, wed, thu, fri, sat, sun.",
-      "overlapping_slots": "Le fasce orarie si sovrappongono nello stesso giorno.",
+      "invalid_temperature": "I valori di temperatura devono essere compresi tra 10,0 e 40,0. Posizione: {location}",
+      "invalid_time": "Gli orari devono essere nel formato HH:MM, con from prima di to. Posizione: {location}",
+      "invalid_day": "I giorni devono essere: mon, tue, wed, thu, fri, sat, sun. Posizione: {location}",
+      "overlapping_slots": "Le fasce orarie si sovrappongono nello stesso giorno. Posizione: {location}",
       "schedule_send_failed": "Impossibile inviare il programma al modulo.",
       "multiple_active": "È possibile avere un solo programma attivo alla volta.",
       "schedule_read_failed": "Impossibile leggere il programma dalla stufa. Vengono mostrati i programmi salvati, che potrebbero essere obsoleti.",
-      "invalid_register": "Un registro è composto da 6 cifre esadecimali: gruppo + indirizzo (es. 0e038c)."
+      "invalid_register": "Un registro è composto da 6 cifre esadecimali: gruppo + indirizzo (es. 0e038c).",
+      "unexpected_key": "Chiave imprevista \"{bad_key}\" alla riga {line}.",
+      "missing_key": "Manca una chiave obbligatoria. Posizione: {location}"
     }
   },
   "selector": {

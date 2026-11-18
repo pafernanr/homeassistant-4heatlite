@@ -41,34 +41,42 @@
   "options": {
     "step": {
       "init": {
-        "description": "Die Modi „Cloud Keepalive“ und „Local Only“ erfordern eine DNS-/DNAT-Einrichtung. Siehe [Dokumentation zu den Proxy-Modi]({proxy_modes_url}).\n\nZeitpläne: Der Ofen speichert immer nur einen Zeitplan, entweder H24 oder CCS. Aktivieren Sie nur einen Eintrag gleichzeitig. Ein Protokollwechsel ersetzt den im Ofen gespeicherten Zeitplan. Im Ofen erkanntes Protokoll: {detected_protocol}.",
+        "description": "Die Modi „Cloud Keepalive“ und „Local Only“ erfordern eine DNS-/DNAT-Einrichtung. Siehe [Dokumentation zu den Proxy-Modi]({proxy_modes_url}).",
         "data": {
           "proxy_mode": "Proxy-Modus",
           "module_address": "Erwartete Modul-IP",
-          "schedule_type": "Zeitplanprotokoll",
-          "schedules": "Heizpläne"
+          "schedule_type": "Zeitplanprotokoll"
         },
         "data_description": {
           "schedule_type": "Manche Öfen unterstützen nur H24, andere sowohl H24 als auch CCS. [Mehr Infos]({scheduling_url})",
           "module_address": "Quell-IP, von der Home Assistant Proxy-Anfragen erwartet. Bei NAT die Router-IP eintragen."
         }
+      },
+      "schedule": {
+        "title": "Zeitplan",
+        "description": "{protocol}-Zeitplan bearbeiten. Setzen Sie active: true bei genau einem Eintrag. [Mehr Infos]({scheduling_url})",
+        "data": {
+          "schedules_h24": "Zeitpläne H24",
+          "schedules_ccs": "Zeitpläne CCS"
+        }
       }
     },
     "error": {
-      "invalid_schedule": "Ungültiges Zeitplanformat. Prüfen Sie die YAML-Struktur des Zeitplans.",
+      "invalid_schedule": "Ungültiges Zeitplanformat. Prüfen Sie die YAML-Struktur des Zeitplans. Stelle: {location}",
+      "no_active_entry": "Für dieses Protokoll ist kein Eintrag aktiv. Setzen Sie active: true bei einem Eintrag oder wählen Sie Aus.",
       "invalid_protocol": "Das Zeitplanprotokoll muss h24 oder ccs sein.",
-      "too_many_slots": "Zu viele Zeitfenster in einer Gruppe (CCS erlaubt 3 pro Tagesgruppe).",
-      "both_protocols_active": "H24- und CCS-Zeitplan dürfen nicht gleichzeitig aktiv sein. Aktivieren Sie nur einen.",
-      "protocol_mismatch": "Der aktive Zeitplan passt nicht zum gewählten Protokoll.",
+      "too_many_slots": "Zu viele Zeitfenster in einer Gruppe (CCS erlaubt 3 pro Tagesgruppe). Stelle: {location}",
       "schedule_rejected": "Der Ofen hat den Zeitplan abgelehnt (Protokoll nicht unterstützt?). Der bisherige Zeitplan wurde beibehalten.",
-      "invalid_temperature": "Temperaturen müssen zwischen 10,0 und 40,0 liegen.",
-      "invalid_time": "Zeiten müssen im Format HH:MM angegeben werden, Start vor Ende.",
-      "invalid_day": "Erlaubte Tage: mon, tue, wed, thu, fri, sat, sun.",
-      "overlapping_slots": "Zeitfenster überschneiden sich am selben Tag.",
+      "invalid_temperature": "Temperaturen müssen zwischen 10,0 und 40,0 liegen. Stelle: {location}",
+      "invalid_time": "Zeiten müssen im Format HH:MM angegeben werden, from vor to. Stelle: {location}",
+      "invalid_day": "Erlaubte Tage: mon, tue, wed, thu, fri, sat, sun. Stelle: {location}",
+      "overlapping_slots": "Zeitfenster überschneiden sich am selben Tag. Stelle: {location}",
       "schedule_send_failed": "Zeitplan konnte nicht an das Modul gesendet werden.",
       "multiple_active": "Es kann nur ein Zeitplan gleichzeitig aktiv sein.",
       "schedule_read_failed": "Der Zeitplan konnte nicht vom Ofen gelesen werden. Es werden die gespeicherten Zeitpläne angezeigt, die veraltet sein können.",
-      "invalid_register": "Ein Register besteht aus 6 Hex-Ziffern: Gruppe + Adresse (z. B. 0e038c)."
+      "invalid_register": "Ein Register besteht aus 6 Hex-Ziffern: Gruppe + Adresse (z. B. 0e038c).",
+      "unexpected_key": "Unerwarteter Schlüssel \"{bad_key}\" in Zeile {line}.",
+      "missing_key": "Ein erforderlicher Schlüssel fehlt. Stelle: {location}"
     }
   },
   "selector": {

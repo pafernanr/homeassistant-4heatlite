@@ -41,34 +41,42 @@
   "options": {
     "step": {
       "init": {
-        "description": "Los modos «Cloud Keepalive» y «Local Only» requieren configurar DNS/DNAT. Consulta la [documentación de los modos proxy]({proxy_modes_url}).\n\nHorarios: la estufa guarda un solo horario a la vez, H24 o CCS. Activa solo una entrada a la vez. Cambiar de protocolo reemplaza el horario guardado en la estufa. Protocolo detectado en la estufa: {detected_protocol}.",
+        "description": "Los modos «Cloud Keepalive» y «Local Only» requieren configurar DNS/DNAT. Consulta la [documentación de los modos proxy]({proxy_modes_url}).",
         "data": {
           "proxy_mode": "Modo proxy",
           "module_address": "IP esperada del módulo",
-          "schedule_type": "Protocolo de calendario",
-          "schedules": "Horarios de calefacción"
+          "schedule_type": "Protocolo de calendario"
         },
         "data_description": {
           "schedule_type": "Algunas estufas solo admiten H24, otras admiten H24 y CCS. [Más info]({scheduling_url})",
           "module_address": "IP de origen que Home Assistant espera para las peticiones proxy. Usa la IP del router si el módulo está detrás de NAT."
         }
+      },
+      "schedule": {
+        "title": "Horario",
+        "description": "Edita el horario {protocol}. Pon active: true en una sola entrada. [Más info]({scheduling_url})",
+        "data": {
+          "schedules_h24": "Horarios H24",
+          "schedules_ccs": "Horarios CCS"
+        }
       }
     },
     "error": {
-      "invalid_schedule": "Formato de horario no válido. Revisa la estructura del YAML del horario.",
+      "invalid_schedule": "Formato de horario no válido. Revisa la estructura del YAML del horario. Ubicación: {location}",
+      "no_active_entry": "Ninguna entrada activa para este protocolo. Pon active: true en una entrada, o elige Off.",
       "invalid_protocol": "El protocolo del horario debe ser h24 o ccs.",
-      "too_many_slots": "Demasiadas franjas en un grupo (CCS permite 3 por grupo de días).",
-      "both_protocols_active": "Los horarios H24 y CCS no pueden estar activos a la vez. Activa solo uno.",
-      "protocol_mismatch": "El horario activo no coincide con el protocolo seleccionado.",
+      "too_many_slots": "Demasiadas franjas en un grupo (CCS permite 3 por grupo de días). Ubicación: {location}",
       "schedule_rejected": "La estufa rechazó el horario (¿protocolo no soportado?). Se mantuvo el horario anterior.",
-      "invalid_temperature": "Los valores de temperatura deben estar entre 10,0 y 40,0.",
-      "invalid_time": "Las horas deben tener el formato HH:MM, con inicio anterior al fin.",
-      "invalid_day": "Los días deben ser: mon, tue, wed, thu, fri, sat, sun.",
-      "overlapping_slots": "Los intervalos se solapan el mismo día.",
+      "invalid_temperature": "Los valores de temperatura deben estar entre 10,0 y 40,0. Ubicación: {location}",
+      "invalid_time": "Las horas deben tener el formato HH:MM, con from anterior a to. Ubicación: {location}",
+      "invalid_day": "Los días deben ser: mon, tue, wed, thu, fri, sat, sun. Ubicación: {location}",
+      "overlapping_slots": "Los intervalos se solapan el mismo día. Ubicación: {location}",
       "schedule_send_failed": "No se pudo enviar el horario al módulo.",
       "multiple_active": "Solo puede haber un horario activo a la vez.",
       "schedule_read_failed": "No se pudo leer el horario de la estufa. Se muestran los horarios guardados, que pueden estar desactualizados.",
-      "invalid_register": "Un registro tiene 6 dígitos hexadecimales: grupo + dirección (p. ej. 0e038c)."
+      "invalid_register": "Un registro tiene 6 dígitos hexadecimales: grupo + dirección (p. ej. 0e038c).",
+      "unexpected_key": "Clave inesperada \"{bad_key}\" en la línea {line}.",
+      "missing_key": "Falta una clave obligatoria. Ubicación: {location}"
     }
   },
   "selector": {

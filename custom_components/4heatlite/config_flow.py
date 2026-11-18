@@ -279,85 +279,22 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         errors = {}
 
+        if not hasattr(self, "_baseline"):
+            await self._refresh_schedules_from_stove(errors)
+
         if user_input is not None:
-            proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_DIRECT)
-            schedules_data = user_input.get("schedules")
-            schedule_type = user_input.get("schedule_type", PROTOCOL_H24)
-            if isinstance(schedules_data, dict) and schedule_type == SCHEDULE_TYPE_OFF:
-                # Off keeps the stored protocol and deactivates every entry.
-                stored = self.config_entry.options.get(CONF_SCHEDULES) or {}
-                previous = getattr(self, "_baseline", None) or stored
-                schedules_data = {
-                    **schedules_data,
-                    "protocol": previous.get("protocol", PROTOCOL_H24),
-                    **{
-                        proto: [
-                            {**e, "active": False} if isinstance(e, dict) else e
-                            for e in schedules_data.get(proto) or []
-                        ]
-                        for proto in (PROTOCOL_H24, PROTOCOL_CCS)
-                    },
-                }
-            elif isinstance(schedules_data, dict):
-                schedules_data = {**schedules_data, "protocol": schedule_type}
-
-            err = FourHeatLiteApi.validate_schedules_config(schedules_data)
-            if err:
-                errors["schedules"] = err
-
+            self._proxy_mode = user_input.get(CONF_PROXY_MODE, PROXY_MODE_DIRECT)
+            self._module_address = (
+                user_input.get(CONF_MODULE_ADDRESS, "") or ""
+            ).strip() or self.config_entry.data.get(CONF_HOST, "")
+            self._schedule_type = user_input.get("schedule_type", SCHEDULE_TYPE_OFF)
+            if self._schedule_type != SCHEDULE_TYPE_OFF:
+                return await self.async_step_schedule()
+            # Off keeps the stored lists as they are and only disables the stove.
+            schedules_data = self._baseline_schedules()
+            errors = await self._apply_schedule(SCHEDULE_TYPE_OFF, schedules_data)
             if not errors:
-                new_active = FourHeatLiteApi.get_active_schedule(schedules_data)
-                old_schedules = getattr(
-                    self, "_baseline", self.config_entry.options.get(CONF_SCHEDULES)
-                )
-                old_active = FourHeatLiteApi.get_active_schedule(old_schedules)
-                protocol = schedules_data.get("protocol", PROTOCOL_H24)
-
-                domain_data = self.hass.data.get(DOMAIN, {})
-                proxy_state = domain_data.get(PROXY_STATE, {})
-                device_id = self.config_entry.data.get(CONF_DEVICE_ID, "")
-
-                cmd = None
-                if new_active is not None:
-                    if new_active != old_active:
-                        new_protocol, index, entry = new_active
-                        if new_protocol == PROTOCOL_CCS:
-                            cmd = FourHeatLiteApi.build_ccs_command(entry)
-                        else:
-                            cmd = FourHeatLiteApi.build_schedule_command(
-                                entry, index
-                            )
-                elif old_active is not None:
-                    old_protocol, old_index, old_entry = old_active
-                    if protocol == PROTOCOL_CCS:
-                        cmd = FourHeatLiteApi.build_disable_ccs_command()
-                    elif old_protocol == PROTOCOL_H24:
-                        cmd = FourHeatLiteApi.build_disable_schedule_command(
-                            old_entry, old_index
-                        )
-                    else:
-                        cmd = FourHeatLiteApi.build_disable_schedule_command()
-
-                if cmd is not None:
-                    status = await self._deliver_command(cmd, device_id, proxy_state)
-                    if status == "rejected":
-                        errors["schedules"] = "schedule_rejected"
-                    elif status != "ok":
-                        errors["schedules"] = "schedule_send_failed"
-                    elif new_active is not None:
-                        self._update_proxy_schedule(
-                            {**new_active[2], "protocol": new_active[0]}
-                        )
-
-            if not errors:
-                module_address = user_input.get(
-                    CONF_MODULE_ADDRESS, ""
-                ).strip() or self.config_entry.data.get(CONF_HOST, "")
-                return self.async_create_entry(data={
-                    CONF_PROXY_MODE: proxy_mode,
-                    CONF_MODULE_ADDRESS: module_address,
-                    CONF_SCHEDULES: schedules_data,
-                })
+                return self._finish(schedules_data)
 
         current_mode = self.config_entry.options.get(
             CONF_PROXY_MODE, PROXY_MODE_DIRECT
@@ -367,22 +304,14 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
             self.config_entry.data.get(CONF_HOST, ""),
         )
         if user_input is not None:
-            current_schedules = user_input.get("schedules")
-            current_type = user_input.get("schedule_type", PROTOCOL_H24)
+            current_type = user_input.get("schedule_type", SCHEDULE_TYPE_OFF)
         else:
-            current_schedules = await self._refresh_schedules_from_stove(errors)
-            current_type = PROTOCOL_H24
-        if not isinstance(current_schedules, dict):
-            current_schedules = FourHeatLiteApi.schedules_from_stove(None)
-        if user_input is None:
+            baseline = self._baseline_schedules()
             current_type = (
-                current_schedules.get("protocol", PROTOCOL_H24)
-                if FourHeatLiteApi.get_active_schedule(current_schedules)
+                baseline["protocol"]
+                if FourHeatLiteApi.get_active_schedule(baseline)
                 else SCHEDULE_TYPE_OFF
             )
-        current_schedules = {
-            k: v for k, v in current_schedules.items() if k != "protocol"
-        }
 
         return self.async_show_form(
             step_id="init",
@@ -410,19 +339,149 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
                             translation_key="schedule_type",
                         )
                     ),
-                    vol.Optional(
-                        "schedules",
-                        default=current_schedules,
-                    ): ObjectSelector(),
                 }
             ),
             errors=errors,
             description_placeholders={
                 "proxy_modes_url": "https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/PROXY_MODES.md",
-                "scheduling_url": "https://github.com/pafernanr/homeassistant-4heatlite/blob/main/docs/SCHEDULING.md",
-                "detected_protocol": self._detected_protocol(),
+                "scheduling_url": "https://github.com/pafernanr/homeassistant-4heatlite/blob/main/README.md#schedule-management",
             },
         )
+
+    async def async_step_schedule(self, user_input=None):
+        """Second step: edit the schedule list of the selected protocol."""
+        protocol = self._schedule_type
+        field = "schedules_h24" if protocol == PROTOCOL_H24 else "schedules_ccs"
+        baseline = self._baseline_schedules()
+        errors = {}
+        self._error_location = ""
+        self._error_key = ""
+        self._error_line = ""
+        current = baseline[protocol]
+
+        if user_input is not None:
+            current = user_input.get(field) or []
+            schedules_data = {**baseline, "protocol": protocol, protocol: current}
+            errors = await self._apply_schedule(protocol, schedules_data)
+            if not errors:
+                return self._finish(schedules_data)
+
+        return self.async_show_form(
+            step_id="schedule",
+            data_schema=vol.Schema(
+                {vol.Optional(field, default=current): ObjectSelector()}
+            ),
+            errors=errors,
+            description_placeholders={
+                "protocol": protocol.upper(),
+                "location": self._error_location,
+                "bad_key": self._error_key,
+                "line": self._error_line,
+                "scheduling_url": f"https://github.com/pafernanr/homeassistant-4heatlite/blob/main/README.md#{protocol}-example",
+            },
+        )
+
+    def _baseline_schedules(self) -> dict:
+        """Stove-merged schedules (or the saved ones) with all keys present."""
+        base = getattr(self, "_baseline", None)
+        if not isinstance(base, dict):
+            base = FourHeatLiteApi.schedules_from_stove(None)
+        return {
+            "protocol": base.get("protocol", PROTOCOL_H24),
+            PROTOCOL_H24: base.get(PROTOCOL_H24) or [],
+            PROTOCOL_CCS: base.get(PROTOCOL_CCS) or [],
+        }
+
+    def _finish(self, schedules_data: dict):
+        return self.async_create_entry(data={
+            CONF_PROXY_MODE: self._proxy_mode,
+            CONF_MODULE_ADDRESS: self._module_address,
+            CONF_SCHEDULES: schedules_data,
+        })
+
+    async def _apply_schedule(self, schedule_type: str, schedules_data: dict) -> dict:
+        """Validate the schedule and send it to the stove. Returns errors."""
+        errors = {}
+        protocol = schedules_data["protocol"]
+        field = "schedules_h24" if protocol == PROTOCOL_H24 else "schedules_ccs"
+        is_off = schedule_type == SCHEDULE_TYPE_OFF
+
+        if not is_off:
+            unexpected = FourHeatLiteApi.find_unexpected_key(
+                schedules_data[protocol], protocol
+            )
+            if unexpected:
+                key, path = unexpected
+                self._error_key = str(key)
+                self._error_line = str(
+                    FourHeatLiteApi.yaml_line_of(schedules_data[protocol], path) or "?"
+                )
+                errors[field] = "unexpected_key"
+                return errors
+            where: list[str] = []
+            err = FourHeatLiteApi.validate_schedules_config(schedules_data, where)
+            if err:
+                self._error_location = ", ".join(where)
+                errors[field] = err
+                return errors
+
+        # The radio decides the protocol; Off sends the disable command.
+        new_active = (
+            None if is_off else FourHeatLiteApi.get_active_schedule(schedules_data)
+        )
+        if new_active is None and not is_off:
+            errors["base"] = "no_active_entry"
+            return errors
+
+        old_active = FourHeatLiteApi.get_active_schedule(
+            getattr(self, "_baseline", self.config_entry.options.get(CONF_SCHEDULES))
+        )
+        proxy_state = self.hass.data.get(DOMAIN, {}).get(PROXY_STATE, {})
+        device_id = self.config_entry.data.get(CONF_DEVICE_ID, "")
+
+        cmd = None
+        fallback_cmd = None
+        if new_active is not None:
+            if new_active != old_active:
+                new_protocol, index, entry = new_active
+                if new_protocol == PROTOCOL_CCS:
+                    cmd = FourHeatLiteApi.build_ccs_command(entry)
+                else:
+                    cmd = FourHeatLiteApi.build_schedule_command(entry, index)
+        else:
+            # Same as the app: CCS period 0 with the stored slots kept.
+            # H24-only stoves reject CCS; then send the H24 disable.
+            ccs_entries = [
+                e
+                for e in schedules_data[PROTOCOL_CCS]
+                if isinstance(e, dict)
+                and FourHeatLiteApi.validate_ccs_schedule(e) is None
+            ]
+            h24_entries = [
+                e for e in schedules_data[PROTOCOL_H24] if isinstance(e, dict)
+            ]
+            cmd = FourHeatLiteApi.build_disable_ccs_command(
+                ccs_entries[0] if ccs_entries else None
+            )
+            fallback_cmd = FourHeatLiteApi.build_disable_schedule_command(
+                h24_entries[0] if h24_entries else None
+            )
+
+        if cmd is not None:
+            status = await self._deliver_command(cmd, device_id, proxy_state)
+            if status == "rejected" and fallback_cmd is not None:
+                status = await self._deliver_command(
+                    fallback_cmd, device_id, proxy_state
+                )
+            if status == "rejected":
+                errors["base"] = "schedule_rejected"
+            elif status != "ok":
+                errors["base"] = "schedule_send_failed"
+            elif new_active is not None:
+                self._update_proxy_schedule(
+                    {**new_active[2], "protocol": new_active[0]}
+                )
+        return errors
 
     async def _refresh_schedules_from_stove(self, errors: dict) -> dict | None:
         """Read the stove (source of truth) and merge it into the stored YAML.
@@ -446,16 +505,6 @@ class FourHeatLiteOptionsFlow(config_entries.OptionsFlow):
         merged = FourHeatLiteApi.merge_stove_schedule(cached, parsed)
         self._baseline = merged
         return merged
-
-    def _detected_protocol(self) -> str:
-        """Protocol of the schedule last read from the stove, if known."""
-        proxy_state = self.hass.data.get(DOMAIN, {}).get(PROXY_STATE, {})
-        for dev in proxy_state.get("devices", {}).values():
-            if dev.get("entry_id") == self.config_entry.entry_id:
-                protocol = (dev.get("last_schedule") or {}).get("protocol")
-                if protocol:
-                    return protocol.upper()
-        return "unknown"
 
     async def _deliver_command(self, cmd, device_id, proxy_state) -> str:
         """Send command via TCP and enqueue in proxy.

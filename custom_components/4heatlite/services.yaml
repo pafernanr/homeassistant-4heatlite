@@ -31,7 +31,7 @@ set_schedule:
             - ccs
     schedule:
       name: Schedule
-      description: "H24: eco, comfort, comfort2 (temperatures) and slots (list with days, start, end, band). CCS: period (daily, weekly or weekend) plus daily_slots, weekly_slots, or workday_slots and weekend_slots."
+      description: "H24: eco, comfort, comfort2 (temperatures) and slots (list with days, from, to, band). CCS: period (daily, weekly or weekend) plus daily_slots, weekly_slots, or workday_slots and weekend_slots."
       required: true
       selector:
         object:

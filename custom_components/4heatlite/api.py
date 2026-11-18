@@ -513,11 +513,15 @@ class FourHeatLiteApi:
                     FourHeatLiteApi._time_to_minutes(start) is None
                     or FourHeatLiteApi._time_to_minutes(end) is None
                 ):
-                    return None
+                    _LOGGER.warning(
+                        "Skipping invalid CCS slot %s-%s on day %s from stove",
+                        start, end, day,
+                    )
+                    continue
                 enabled = str(check) == "1"
                 if start == end == "00:00" and not enabled:
                     continue
-                slots.append({"start": start, "end": end, "enabled": enabled})
+                slots.append({"from": start, "to": end, "enabled": enabled})
             days[day] = slots
 
         result: dict = {"protocol": PROTOCOL_CCS, "period": period}
@@ -553,8 +557,8 @@ class FourHeatLiteApi:
             slots = per_day[day]
             for j in range(CCS_SLOTS_PER_GROUP):
                 if j < len(slots):
-                    start = FourHeatLiteApi._time_to_minutes(slots[j]["start"])
-                    end = FourHeatLiteApi._time_to_minutes(slots[j]["end"])
+                    start = FourHeatLiteApi._time_to_minutes(slots[j]["from"])
+                    end = FourHeatLiteApi._time_to_minutes(slots[j]["to"])
                     data.extend([
                         f"{start // 60:02d}:{start % 60:02d}",
                         f"{end // 60:02d}:{end % 60:02d}",
@@ -565,12 +569,25 @@ class FourHeatLiteApi:
         return ["CCS", str(len(data) + 1), str(CCS_PERIODS[period]), *data]
 
     @staticmethod
-    def build_disable_ccs_command() -> list:
-        """Build CCS command with period 0 (disabled) and no slots."""
-        return FourHeatLiteApi.build_ccs_command({"period": "off"})
+    def build_disable_ccs_command(schedule: dict | None = None) -> list:
+        """CCS command with period 0 (disabled), as the app sends it.
+
+        Keeps the day/slot data of `schedule` (stored CCS entry) and only
+        sets the period to 0. Without a schedule, all slots are empty.
+        """
+        cmd = FourHeatLiteApi.build_ccs_command(schedule or {"period": "off"})
+        cmd[2] = str(CCS_PERIODS["off"])
+        return cmd
 
     @staticmethod
-    def _validate_ccs_slots(slots) -> str | None:
+    def _where(where, text, err):
+        """Prepend a location part (outermost first) and return the error key."""
+        if where is not None:
+            where.insert(0, text)
+        return err
+
+    @staticmethod
+    def _validate_ccs_slots(slots, where=None) -> str | None:
         """Validate one list of CCS slots (a group). Returns error or None."""
         if slots is None:
             return None
@@ -579,16 +596,21 @@ class FourHeatLiteApi:
         if len(slots) > CCS_SLOTS_PER_GROUP:
             return "too_many_slots"
         enabled_ranges = []
-        for slot in slots:
+        for n, slot in enumerate(slots, 1):
             if not isinstance(slot, dict):
-                return "invalid_schedule"
-            start = FourHeatLiteApi._time_to_minutes(slot.get("start"))
-            end = FourHeatLiteApi._time_to_minutes(slot.get("end"))
+                return FourHeatLiteApi._where(where, f"slot {n}", "invalid_schedule")
+            for req in ("from", "to"):
+                if req not in slot:
+                    if where is not None:
+                        where.append(f'missing "{req}"')
+                    return FourHeatLiteApi._where(where, f"slot {n}", "missing_key")
+            start = FourHeatLiteApi._time_to_minutes(slot.get("from"))
+            end = FourHeatLiteApi._time_to_minutes(slot.get("to"))
             if start is None or end is None or start >= end:
-                return "invalid_time"
+                return FourHeatLiteApi._where(where, f"slot {n}", "invalid_time")
             enabled = slot.get("enabled", True)
             if not isinstance(enabled, bool):
-                return "invalid_schedule"
+                return FourHeatLiteApi._where(where, f"slot {n}", "invalid_schedule")
             if enabled:
                 enabled_ranges.append((start, end))
         enabled_ranges.sort()
@@ -598,7 +620,7 @@ class FourHeatLiteApi:
         return None
 
     @staticmethod
-    def validate_ccs_schedule(data) -> str | None:
+    def validate_ccs_schedule(data, where=None) -> str | None:
         """Validate a CCS schedule dict. Returns error string or None."""
         if not isinstance(data, dict):
             return "invalid_schedule"
@@ -614,17 +636,17 @@ class FourHeatLiteApi:
             for day, slots in daily.items():
                 if day not in DAY_NAMES:
                     return "invalid_day"
-                err = FourHeatLiteApi._validate_ccs_slots(slots)
+                err = FourHeatLiteApi._validate_ccs_slots(slots, where)
                 if err:
-                    return err
+                    return FourHeatLiteApi._where(where, f"daily_slots {day}", err)
             return None
         keys = ("weekly_slots",) if period == "weekly" else (
             "workday_slots", "weekend_slots"
         )
         for key in keys:
-            err = FourHeatLiteApi._validate_ccs_slots(data.get(key))
+            err = FourHeatLiteApi._validate_ccs_slots(data.get(key), where)
             if err:
-                return err
+                return FourHeatLiteApi._where(where, key, err)
         return None
 
     @staticmethod
@@ -632,7 +654,7 @@ class FourHeatLiteApi:
         """Disabled example entries for a protocol."""
 
         def slot(start, end, enabled=True):
-            return {"start": start, "end": end, "enabled": enabled}
+            return {"from": start, "to": end, "enabled": enabled}
 
         if protocol == PROTOCOL_CCS:
             return [
@@ -678,20 +700,20 @@ class FourHeatLiteApi:
                 "slots": [
                     {
                         "days": weekdays,
-                        "start": "06:30",
-                        "end": "08:30",
+                        "from": "06:30",
+                        "to": "08:30",
                         "band": "comfort",
                     },
                     {
                         "days": list(weekdays),
-                        "start": "18:00",
-                        "end": "22:00",
+                        "from": "18:00",
+                        "to": "22:00",
                         "band": "comfort2",
                     },
                     {
                         "days": ["sat", "sun"],
-                        "start": "08:00",
-                        "end": "23:00",
+                        "from": "08:00",
+                        "to": "23:00",
                         "band": "comfort",
                     },
                 ],
@@ -754,7 +776,9 @@ class FourHeatLiteApi:
             return value
 
         data = {
-            k: v for k, v in entry.items() if k not in ("name", "active", "protocol")
+            k: v
+            for k, v in entry.items()
+            if k not in ("name", "active", "protocol")
         }
         return json.dumps(norm(data), sort_keys=True)
 
@@ -772,12 +796,17 @@ class FourHeatLiteApi:
             return config
 
         result = {"protocol": config.get("protocol", PROTOCOL_H24)}
+        detected = (parsed or {}).get("protocol")
         for proto in SCHEDULE_PROTOCOLS:
             entries = config.get(proto)
-            result[proto] = [
-                {**e, "active": False} if isinstance(e, dict) else e
-                for e in (entries if isinstance(entries, list) else [])
-            ]
+            entries = entries if isinstance(entries, list) else []
+            # The radio decides the protocol: only the detected list is touched.
+            if detected not in SCHEDULE_PROTOCOLS or proto == detected:
+                entries = [
+                    {**e, "active": False} if isinstance(e, dict) else e
+                    for e in entries
+                ]
+            result[proto] = entries
             if not result[proto]:
                 result[proto] = FourHeatLiteApi.default_schedule_entries(proto)
 
@@ -824,14 +853,115 @@ class FourHeatLiteApi:
         """(protocol, index, entry) of the active schedule, or None."""
         if not isinstance(config, dict):
             return None
-        for protocol in SCHEDULE_PROTOCOLS:
-            for index, entry in enumerate(config.get(protocol) or []):
-                if isinstance(entry, dict) and entry.get("active"):
-                    return protocol, index, entry
+        protocol = config.get("protocol", PROTOCOL_H24)
+        if protocol not in SCHEDULE_PROTOCOLS:
+            return None
+        for index, entry in enumerate(config.get(protocol) or []):
+            if isinstance(entry, dict) and entry.get("active"):
+                return protocol, index, entry
+        return None
+
+    SCHEDULE_KEYS = {
+        PROTOCOL_H24: (
+            {"name", "active", "eco", "comfort", "comfort2", "slots"},
+            {"days", "from", "to", "band"},
+        ),
+        PROTOCOL_CCS: (
+            {"name", "active", "period", "daily_slots", "weekly_slots",
+             "workday_slots", "weekend_slots"},
+            {"from", "to", "enabled"},
+        ),
+    }
+
+    @staticmethod
+    def find_unexpected_key(entries, protocol) -> tuple[str, tuple] | None:
+        """First unknown key in a protocol list as (key, path), or None."""
+        if protocol not in FourHeatLiteApi.SCHEDULE_KEYS or not isinstance(entries, list):
+            return None
+        entry_keys, slot_keys = FourHeatLiteApi.SCHEDULE_KEYS[protocol]
+        for i, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                continue
+            for key in entry:
+                if key not in entry_keys:
+                    return key, (i, key)
+            groups = []
+            if protocol == PROTOCOL_H24:
+                groups.append(("slots", entry.get("slots")))
+            else:
+                for gk in ("weekly_slots", "workday_slots", "weekend_slots"):
+                    groups.append((gk, entry.get(gk)))
+                daily = entry.get("daily_slots")
+                if isinstance(daily, dict):
+                    for day, slots in daily.items():
+                        groups.append(("daily_slots", slots, day))
+            for group in groups:
+                gk, slots = group[0], group[1]
+                if not isinstance(slots, list):
+                    continue
+                for j, slot in enumerate(slots):
+                    if not isinstance(slot, dict):
+                        continue
+                    for key in slot:
+                        if key not in slot_keys:
+                            path = (i, gk) + group[2:] + (j, key)
+                            return key, path
         return None
 
     @staticmethod
-    def validate_schedules_config(data) -> str | None:
+    def yaml_line_of(data, target: tuple) -> int | None:
+        """1-based line of `target` path in the editor YAML (insertion order)."""
+        count = 0
+
+        def walk(obj, path):
+            nonlocal count
+            if isinstance(obj, dict) and obj:
+                for k in list(obj):
+                    count_line(path + (k,))
+                    if hit is not None:
+                        return
+                    walk(obj[k], path + (k,))
+                    if hit is not None:
+                        return
+            elif isinstance(obj, list) and obj:
+                for idx, item in enumerate(obj):
+                    if isinstance(item, dict) and item:
+                        keys = list(item)
+                        # first key shares the "- " line
+                        count_line(path + (idx, keys[0]))
+                        if hit is not None:
+                            return
+                        walk(item[keys[0]], path + (idx, keys[0]))
+                        if hit is not None:
+                            return
+                        for k in keys[1:]:
+                            count_line(path + (idx, k))
+                            if hit is not None:
+                                return
+                            walk(item[k], path + (idx, k))
+                            if hit is not None:
+                                return
+                    else:
+                        count_line(path + (idx,))
+                        if hit is not None:
+                            return
+                        walk(item, path + (idx,))
+                        if hit is not None:
+                            return
+
+        hit = None
+
+        def count_line(path):
+            nonlocal count, hit
+            count += 1
+            if path == target:
+                hit = count
+
+        walk(data, ())
+        return hit
+
+    @staticmethod
+    def validate_schedules_config(data, where=None) -> str | None:
         """Validate the whole schedules option. Returns error string or None."""
         if not isinstance(data, dict):
             return "invalid_schedule"
@@ -839,36 +969,33 @@ class FourHeatLiteApi:
         if protocol not in SCHEDULE_PROTOCOLS:
             return "invalid_protocol"
 
-        active = {PROTOCOL_H24: 0, PROTOCOL_CCS: 0}
-        for proto in SCHEDULE_PROTOCOLS:
+        active = 0
+        # The radio decides the protocol: the other list is not validated.
+        for proto in (protocol,):
             entries = data.get(proto)
             if entries is None:
                 continue
             if not isinstance(entries, list):
                 return "invalid_schedule"
-            for entry in entries:
+            for n, entry in enumerate(entries, 1):
+                label = f'entry {n} "{entry.get("name", "")}"' if isinstance(entry, dict) else f"entry {n}"
                 if not isinstance(entry, dict):
-                    return "invalid_schedule"
+                    return FourHeatLiteApi._where(where, label, "invalid_schedule")
                 if proto == PROTOCOL_H24:
                     err = (
-                        FourHeatLiteApi.validate_schedule(entry)
+                        FourHeatLiteApi.validate_schedule(entry, where)
                         if entry.get("slots") or entry.get("active")
                         else None
                     )
                 else:
-                    err = FourHeatLiteApi.validate_ccs_schedule(entry)
+                    err = FourHeatLiteApi.validate_ccs_schedule(entry, where)
                 if err:
-                    return err
+                    return FourHeatLiteApi._where(where, label, err)
                 if entry.get("active"):
-                    active[proto] += 1
+                    active += 1
 
-        if active[PROTOCOL_H24] and active[PROTOCOL_CCS]:
-            return "both_protocols_active"
-        if max(active.values()) > 1:
+        if active > 1:
             return "multiple_active"
-        for proto, count in active.items():
-            if count and proto != protocol:
-                return "protocol_mismatch"
         return None
 
     @staticmethod
@@ -943,13 +1070,13 @@ class FourHeatLiteApi:
             ordered = [d for d in DAY_NAMES if d in days]
             slots.append({
                 "days": ordered,
-                "start": start_t,
-                "end": end_t,
+                "from": start_t,
+                "to": end_t,
                 "band": band,
             })
         slots.sort(key=lambda s: (
             DAY_OFFSETS.get(s["days"][0], 0) if s["days"] else 0,
-            s["start"],
+            s["from"],
         ))
 
         return {
@@ -979,8 +1106,8 @@ class FourHeatLiteApi:
         for slot in schedule.get("slots", []):
             band = slot["band"]
             temp = band_to_temp.get(band, 0)
-            start_parts = slot["start"].split(":")
-            end_parts = slot["end"].split(":")
+            start_parts = slot["from"].split(":")
+            end_parts = slot["to"].split(":")
             start_offset = int(start_parts[0]) * 60 + int(start_parts[1])
             end_offset = int(end_parts[0]) * 60 + int(end_parts[1])
 
@@ -1018,7 +1145,7 @@ class FourHeatLiteApi:
         ]
 
     @staticmethod
-    def validate_schedule(data) -> str | None:
+    def validate_schedule(data, where=None) -> str | None:
         """Validate a schedule dict. Returns error string or None."""
         if not isinstance(data, dict):
             return "invalid_schedule"
@@ -1026,52 +1153,57 @@ class FourHeatLiteApi:
         for key in ("eco", "comfort", "comfort2"):
             val = data.get(key)
             if val is None:
-                return "invalid_schedule"
+                return FourHeatLiteApi._where(where, key, "invalid_schedule")
             try:
                 val = float(val)
             except (TypeError, ValueError):
-                return "invalid_temperature"
+                return FourHeatLiteApi._where(where, key, "invalid_temperature")
             if not 10.0 <= val <= 40.0:
-                return "invalid_temperature"
+                return FourHeatLiteApi._where(where, key, "invalid_temperature")
 
         slots = data.get("slots")
         if not isinstance(slots, list):
             return "invalid_schedule"
 
         day_intervals: dict[str, list[tuple[int, int]]] = {}
-        for slot in slots:
+        for n, slot in enumerate(slots, 1):
             if not isinstance(slot, dict):
-                return "invalid_schedule"
+                return FourHeatLiteApi._where(where, f"slot {n}", "invalid_schedule")
 
             days = slot.get("days")
             if not isinstance(days, list) or not days:
-                return "invalid_day"
+                return FourHeatLiteApi._where(where, f"slot {n}", "invalid_day")
             for d in days:
                 if d not in DAY_NAMES:
-                    return "invalid_day"
+                    return FourHeatLiteApi._where(where, f"slot {n}", "invalid_day")
 
-            for field in ("start", "end"):
+            for req in ("from", "to"):
+                if req not in slot:
+                    if where is not None:
+                        where.append(f'missing "{req}"')
+                    return FourHeatLiteApi._where(where, f"slot {n}", "missing_key")
+            for field in ("from", "to"):
                 val = slot.get(field, "")
                 if not isinstance(val, str):
-                    return "invalid_time"
+                    return FourHeatLiteApi._where(where, f"slot {n}", "invalid_time")
                 parts = val.split(":")
                 if len(parts) != 2:
-                    return "invalid_time"
+                    return FourHeatLiteApi._where(where, f"slot {n}", "invalid_time")
                 try:
                     h, m = int(parts[0]), int(parts[1])
                 except ValueError:
-                    return "invalid_time"
+                    return FourHeatLiteApi._where(where, f"slot {n}", "invalid_time")
                 if not (0 <= h <= 23 and 0 <= m <= 59):
-                    return "invalid_time"
+                    return FourHeatLiteApi._where(where, f"slot {n}", "invalid_time")
 
-            start_m = int(slot["start"].split(":")[0]) * 60 + int(slot["start"].split(":")[1])
-            end_m = int(slot["end"].split(":")[0]) * 60 + int(slot["end"].split(":")[1])
+            start_m = int(slot["from"].split(":")[0]) * 60 + int(slot["from"].split(":")[1])
+            end_m = int(slot["to"].split(":")[0]) * 60 + int(slot["to"].split(":")[1])
             if start_m >= end_m:
-                return "invalid_time"
+                return FourHeatLiteApi._where(where, f"slot {n}", "invalid_time")
 
             band = slot.get("band", "")
             if band not in BAND_NAMES or band == "off":
-                return "invalid_schedule"
+                return FourHeatLiteApi._where(where, f"slot {n}", "invalid_schedule")
 
             for d in days:
                 day_intervals.setdefault(d, []).append((start_m, end_m))

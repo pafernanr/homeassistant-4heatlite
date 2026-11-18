@@ -41,34 +41,42 @@
   "options": {
     "step": {
       "init": {
-        "description": "Cloud Keepalive and Local Only modes require DNS/DNAT setup. See [Proxy Modes documentation]({proxy_modes_url}).\n\nSchedules: the stove stores only one schedule at a time, either H24 or CCS. Enable only one entry at a time. Switching protocol replaces the schedule stored on the stove. Protocol detected on the stove: {detected_protocol}.",
+        "description": "Cloud Keepalive and Local Only modes require DNS/DNAT setup. See [Proxy Modes documentation]({proxy_modes_url}).",
         "data": {
           "proxy_mode": "Proxy Mode",
           "module_address": "Expected module IP",
-          "schedule_type": "Schedule Protocol",
-          "schedules": "Heating Schedules"
+          "schedule_type": "Schedule Protocol"
         },
         "data_description": {
           "schedule_type": "Some stoves only support H24, others support both H24 and CCS. [More info]({scheduling_url})",
           "module_address": "Source IP that Home Assistant expects for proxy requests. Set to router IP if the module is behind NAT."
         }
+      },
+      "schedule": {
+        "title": "Schedule",
+        "description": "Edit the {protocol} schedule. Set active: true on exactly one entry. [More info]({scheduling_url})",
+        "data": {
+          "schedules_h24": "H24 schedules",
+          "schedules_ccs": "CCS schedules"
+        }
       }
     },
     "error": {
-      "invalid_schedule": "Invalid schedule format. Check the schedule YAML structure.",
+      "invalid_schedule": "Invalid schedule format. Check the schedule YAML structure. Location: {location}",
+      "no_active_entry": "No entry is active for this protocol. Set active: true on one entry, or choose Off.",
       "invalid_protocol": "Schedule protocol must be h24 or ccs.",
-      "too_many_slots": "Too many time slots in one group (CCS allows 3 per day group).",
-      "both_protocols_active": "H24 and CCS schedules cannot both be enabled. Enable only one.",
-      "protocol_mismatch": "The enabled schedule does not match the selected protocol.",
+      "too_many_slots": "Too many time slots in one group (CCS allows 3 per day group). Location: {location}",
       "schedule_rejected": "The stove rejected the schedule (unsupported protocol?). The previous schedule was kept.",
-      "invalid_temperature": "Temperature values must be between 10.0 and 40.0.",
-      "invalid_time": "Time values must be in HH:MM format with start before end.",
-      "invalid_day": "Day names must be: mon, tue, wed, thu, fri, sat, sun.",
-      "overlapping_slots": "Time slots overlap on the same day.",
+      "invalid_temperature": "Temperature values must be between 10.0 and 40.0. Location: {location}",
+      "invalid_time": "Time values must be in HH:MM format with from before to. Location: {location}",
+      "invalid_day": "Day names must be: mon, tue, wed, thu, fri, sat, sun. Location: {location}",
+      "overlapping_slots": "Time slots overlap on the same day. Location: {location}",
       "schedule_send_failed": "Failed to send schedule to module.",
       "multiple_active": "Only one schedule can be active at a time.",
       "schedule_read_failed": "Could not read the schedule from the stove. Showing the saved schedules, which may be outdated.",
-      "invalid_register": "A register is 6 hex digits, group + address (e.g. 0e038c)."
+      "invalid_register": "A register is 6 hex digits, group + address (e.g. 0e038c).",
+      "unexpected_key": "Unexpected key \"{bad_key}\" on line {line}.",
+      "missing_key": "A required key is missing. Location: {location}"
     }
   },
   "selector": {
