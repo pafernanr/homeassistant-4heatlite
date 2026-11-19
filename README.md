@@ -161,15 +161,15 @@ View and edit the stove's heating schedule directly from HA. Two schedule protoc
 
 See [Scheduling](docs/SCHEDULING.md) for the H24/CCS protocol details.
 
-> **Warning:** the stove stores only one schedule (H24 or CCS) at a time. Selecting the other protocol replaces the schedule stored on the stove. If the stove does not support the protocol it rejects the write, the previous schedule is kept and an error is shown.
+> **Warning:** the stove stores only one schedule (H24 or CCS) at a time. Selecting the other protocol replaces the schedule stored on the stove, and **Off** (like the mobile app's disable) overwrites it too, so the stove loses its H24 program. The YAML kept in Home Assistant is not touched: select H24 again to write it back. If the stove does not support the protocol it rejects the write, the previous schedule is kept and an error is shown.
 
-Only the keys shown in the examples are accepted. Validation errors name the problem and where it is: an unknown key is reported as `Unexpected key "x" on line N`, other errors (missing key, bad time, unknown temperature name) show the entry name and slot number.
+Only the keys shown in the examples are accepted. Validation errors name the problem and where it is: an unknown key is reported as `Unexpected key "x" on line N`, other errors (missing key, bad time, unknown band) show the entry name and slot number.
 
 Choose the protocol with the **Schedule Protocol** radio button (Off / H24 / CCS). Step 2 of the options screen then shows only the YAML list of that protocol, a plain list of entries.
 
 #### H24 example
 
-`temperatures` defines the three temperatures (°C): `eco`, `normal` and `warm`. Each slot's `temperature` is one of those three names and selects which temperature applies; any other value is rejected with an "Unknown temperature name" error.
+`temperatures` defines the three temperatures (°C): `eco`, `normal` and `warm`. Each slot's `band` is one of those three names and selects which temperature applies; any other value is rejected with an "Unknown band" error.
 
 ```yaml
 - name: Autumn
@@ -182,15 +182,15 @@ Choose the protocol with the **Schedule Protocol** radio button (Off / H24 / CCS
     - days: [mon, tue, wed, thu, fri]
       from: '06:30'
       to: '08:30'
-      temperature: normal
+      band: normal
     - days: [mon, tue, wed, thu, fri]
       from: '18:00'
       to: '22:00'
-      temperature: warm
+      band: warm
     - days: [sat, sun]
       from: '08:00'
       to: '23:00'
-      temperature: normal
+      band: normal
 - name: Winter
   active: false
   temperatures:
@@ -201,7 +201,7 @@ Choose the protocol with the **Schedule Protocol** radio button (Off / H24 / CCS
     - days: [mon, tue, wed, thu, fri]
       from: '06:00'
       to: '20:00'
-      temperature: normal
+      band: normal
 ```
 
 #### CCS example

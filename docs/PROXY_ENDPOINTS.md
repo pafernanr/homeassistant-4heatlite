@@ -166,7 +166,9 @@ Proxy parses `Values` to extract sensor data (see [Values Decoding](#values-deco
 
 ### POST `/api/devices/cron`
 
-Module sends schedule/timer data periodically.
+Module sends schedule/timer data periodically: `{"key":"<DeviceKey>","comando":["H24"|"CCG",...]}`, the same frame as a `["CCG","0"]` read returns (H24 program, or `CCG` with a period, `0` meaning disabled). The proxy parses it into the cached schedule.
+
+The mobile app does not use the cloud for schedule writes: it sends `H24`/`CCS` frames straight to the module over TCP (see [Scheduling](SCHEDULING.md#enabling-and-disabling-the-schedule-captured)), so the proxy never sees them and the app-facing `POST /api/devices/command` and `GET /api/devices/cron` below stay unimplemented.
 
 **Response:**
 

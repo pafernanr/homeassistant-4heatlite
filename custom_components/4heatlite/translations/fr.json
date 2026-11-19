@@ -69,7 +69,7 @@
       "schedule_rejected": "Le poêle a rejeté le programme (protocole non pris en charge ?). Le programme précédent a été conservé.",
       "invalid_temperature": "Les températures doivent être comprises entre 10,0 et 40,0. Emplacement: {location}",
       "invalid_time": "Les heures doivent être au format HH:MM, from avant to. Emplacement: {location}",
-      "invalid_slot_temperature": "Nom de température inconnu. Valeurs autorisées : eco, normal, warm. Emplacement: {location}",
+      "invalid_band": "Bande inconnue. Valeurs autorisées : eco, normal, warm. Emplacement: {location}",
       "invalid_day": "Les jours doivent être : mon, tue, wed, thu, fri, sat, sun. Emplacement: {location}",
       "overlapping_slots": "Les créneaux se chevauchent le même jour. Emplacement: {location}",
       "schedule_send_failed": "Échec de l'envoi du programme au module.",

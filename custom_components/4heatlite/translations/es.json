@@ -69,7 +69,7 @@
       "schedule_rejected": "La estufa rechazó el horario (¿protocolo no soportado?). Se mantuvo el horario anterior.",
       "invalid_temperature": "Los valores de temperatura deben estar entre 10,0 y 40,0. Ubicación: {location}",
       "invalid_time": "Las horas deben tener el formato HH:MM, con from anterior a to. Ubicación: {location}",
-      "invalid_slot_temperature": "Nombre de temperatura desconocido. Valores permitidos: eco, normal, warm. Ubicación: {location}",
+      "invalid_band": "Banda desconocida. Valores permitidos: eco, normal, warm. Ubicación: {location}",
       "invalid_day": "Los días deben ser: mon, tue, wed, thu, fri, sat, sun. Ubicación: {location}",
       "overlapping_slots": "Los intervalos se solapan el mismo día. Ubicación: {location}",
       "schedule_send_failed": "No se pudo enviar el horario al módulo.",

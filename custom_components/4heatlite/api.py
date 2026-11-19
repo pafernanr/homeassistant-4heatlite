@@ -701,19 +701,19 @@ class FourHeatLiteApi:
                         "days": weekdays,
                         "from": "06:30",
                         "to": "08:30",
-                        "temperature": "normal",
+                        "band": "normal",
                     },
                     {
                         "days": list(weekdays),
                         "from": "18:00",
                         "to": "22:00",
-                        "temperature": "warm",
+                        "band": "warm",
                     },
                     {
                         "days": ["sat", "sun"],
                         "from": "08:00",
                         "to": "23:00",
-                        "temperature": "normal",
+                        "band": "normal",
                     },
                 ],
             }
@@ -861,7 +861,7 @@ class FourHeatLiteApi:
     SCHEDULE_KEYS = {
         PROTOCOL_H24: (
             {"name", "active", "temperatures", "slots"},
-            {"days", "from", "to", "temperature"},
+            {"days", "from", "to", "band"},
         ),
         PROTOCOL_CCS: (
             {"name", "active", "period", "daily_slots", "weekly_slots",
@@ -1074,7 +1074,7 @@ class FourHeatLiteApi:
                 "days": ordered,
                 "from": start_t,
                 "to": end_t,
-                "temperature": tname,
+                "band": tname,
             })
         slots.sort(key=lambda s: (
             DAY_OFFSETS.get(s["days"][0], 0) if s["days"] else 0,
@@ -1109,7 +1109,7 @@ class FourHeatLiteApi:
 
         events = []
         for slot in schedule.get("slots", []):
-            tname = slot["temperature"]
+            tname = slot["band"]
             temp = name_to_temp.get(tname, 0)
             start_parts = slot["from"].split(":")
             end_parts = slot["to"].split(":")
@@ -1215,15 +1215,15 @@ class FourHeatLiteApi:
             if start_m >= end_m:
                 return FourHeatLiteApi._where(where, f"slot {n}", "invalid_time")
 
-            tname = slot.get("temperature")
+            tname = slot.get("band")
             if tname is None:
                 if where is not None:
-                    where.append('missing "temperature"')
+                    where.append('missing "band"')
                 return FourHeatLiteApi._where(where, f"slot {n}", "missing_key")
             if tname not in TEMPERATURE_NAMES:
                 if where is not None:
-                    where.append(f'temperature "{tname}"')
-                return FourHeatLiteApi._where(where, f"slot {n}", "invalid_slot_temperature")
+                    where.append(f'band "{tname}"')
+                return FourHeatLiteApi._where(where, f"slot {n}", "invalid_band")
 
             for d in days:
                 day_intervals.setdefault(d, []).append((start_m, end_m))

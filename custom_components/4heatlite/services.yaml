@@ -31,7 +31,7 @@ set_schedule:
             - ccs
     schedule:
       name: Schedule
-      description: "H24: temperatures (mapping with eco, normal and warm in °C) and slots (list with days, from, to, temperature: eco, normal or warm). CCS: period (daily, weekly or weekend) plus daily_slots, weekly_slots, or workday_slots and weekend_slots."
+      description: "H24: temperatures (mapping with eco, normal and warm in °C) and slots (list with days, from, to, band: eco, normal or warm). CCS: period (daily, weekly or weekend) plus daily_slots, weekly_slots, or workday_slots and weekend_slots."
       required: true
       selector:
         object:

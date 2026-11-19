@@ -69,7 +69,7 @@
       "schedule_rejected": "The stove rejected the schedule (unsupported protocol?). The previous schedule was kept.",
       "invalid_temperature": "Temperature values must be between 10.0 and 40.0. Location: {location}",
       "invalid_time": "Time values must be in HH:MM format with from before to. Location: {location}",
-      "invalid_slot_temperature": "Unknown temperature name. Allowed values: eco, normal, warm. Location: {location}",
+      "invalid_band": "Unknown band. Allowed values: eco, normal, warm. Location: {location}",
       "invalid_day": "Day names must be: mon, tue, wed, thu, fri, sat, sun. Location: {location}",
       "overlapping_slots": "Time slots overlap on the same day. Location: {location}",
       "schedule_send_failed": "Failed to send schedule to module.",

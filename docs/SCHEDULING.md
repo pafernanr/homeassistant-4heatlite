@@ -60,7 +60,7 @@ Used by the "Heating" page in the mobile app. Defines temperature bands (ECO, CO
 
 Temperature values in the pairs match one of the defined bands (ECO, COMFORT, COMFORT2) or `0` for OFF. The module switches to the specified temperature at each minute mark.
 
-In the integration's YAML the three temperatures are `temperatures: {eco, normal, warm}` (ECO, COMFORT, COMFORT2 respectively) and each slot's `temperature` is one of `eco`, `normal` or `warm`. When the schedule is read from the stove, temperatures are matched by value, so two bands set to the same temperature cannot be told apart and are shown as the first matching name. Only known keys are accepted. An unknown key (also inside `temperatures`) is reported as `Unexpected key "x" on line N` (line in the options editor); a missing required key as "A required key is missing" with its location (e.g. `temperatures, missing "eco"`); an unknown `temperature` value as "Unknown temperature name" with its location; temperatures outside 10-40 °C as an invalid temperature error.
+In the integration's YAML the three temperatures are `temperatures: {eco, normal, warm}` (ECO, COMFORT, COMFORT2 respectively) and each slot's `band` is one of `eco`, `normal` or `warm`. When the schedule is read from the stove, temperatures are matched by value, so two bands set to the same temperature cannot be told apart and are shown as the first matching name. Only known keys are accepted. An unknown key (also inside `temperatures`) is reported as `Unexpected key "x" on line N` (line in the options editor); a missing required key as "A required key is missing" with its location (e.g. `temperatures, missing "eco"`); an unknown `band` value as "Unknown band" with its location; temperatures outside 10-40 °C as an invalid temperature error.
 
 #### Example
 
@@ -149,11 +149,25 @@ The integration uses **dual delivery**: TCP direct + proxy command queue.
 
 The queue response must use compact JSON (`separators=(",",":")`) to fit within the ESP32's HTTP receive buffer.
 
-## Disabling the schedule
+## Enabling and disabling the schedule (captured)
 
-The mobile app disables the schedule by sending a CCS command with `period=0`, which overwrites whatever schedule is active (including H24) with a disabled CCS. The app caches the schedule locally and re-sends it to re-enable.
+Captured from the mobile app (phone to stove, TCP port 80). There is no separate on/off command for H24: enabling and disabling are ordinary schedule writes, and only one schedule lives on the stove.
 
-**Disabling:** `["H24",...]` with two OFF transitions is used when H24 is the selected protocol (the app itself uses CCS `period=0`). When CCS is the selected protocol the integration sends the CCS disable command with `period=0` and empty slots, in the same format as the app. The `temperatures` of the previous H24 schedule are preserved in the H24 form:
+| App action | Frame sent | Stove reply | `["CCG","0"]` read afterwards |
+|------------|-----------|-------------|-------------------------------|
+| Enable H24 | the full `["H24","<count>","#13",...]` program (the app re-sends its cached copy) | `["H24","1","OK"]` | `["H24",...]` with the program |
+| Enable CCS | `["CCS","71","<1\|2\|3>",...]` | `["CCS","1","OK"]` | `["CCG","71","<period>",...]` |
+| Disable (H24 or CCS active) | `["CCS","71","0",...]` | `["CCS","1","OK"]` | `["CCG","71","0",...]` |
+
+Notes:
+
+- **Disabling is always CCS `period=0`**, also when H24 was the active protocol. It overwrites the stored schedule: the H24 program is lost on the stove (the app keeps its own copy and re-sends it to enable H24 again).
+- The slot data in a disable frame is whatever the app holds: `day1` slot 1 `00:00–00:59` enabled when H24 was active before, or the previous CCS slots when CCS was active.
+- A disabled stove answers `CCG` with `period=0` and those slots, so a `CCG` read does not tell H24 from "never configured": there is no H24 data left. The integration treats it as "no active schedule".
+- **Count field:** the app writes the H24 count as `2 × pairs + 5` (63 for 29 pairs); when read back the stove reports `pairs + 5` (34) for the same data. Both forms carry identical data, and the integration builds `2 × pairs + 5` and ignores the count when parsing.
+- The app's CCS writes are accepted at any time; no `ERR` was seen for H24-only vs CCS stoves in the captures (the stove used supports both).
+
+**Integration:** Off sends the CCS disable (`period=0`, stored CCS slots kept) like the app. If the stove answers `ERR` (stoves without CCS) it falls back to an H24 command with two OFF transitions. That fallback was **not captured**; it is untested on real hardware:
 
 ```
 ["H24","9","#13","0","<ECO>","<COMFORT>","<COMFORT2>","0","0","0","0"]

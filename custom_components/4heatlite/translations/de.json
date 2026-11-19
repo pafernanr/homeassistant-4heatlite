@@ -69,7 +69,7 @@
       "schedule_rejected": "Der Ofen hat den Zeitplan abgelehnt (Protokoll nicht unterstützt?). Der bisherige Zeitplan wurde beibehalten.",
       "invalid_temperature": "Temperaturen müssen zwischen 10,0 und 40,0 liegen. Stelle: {location}",
       "invalid_time": "Zeiten müssen im Format HH:MM angegeben werden, from vor to. Stelle: {location}",
-      "invalid_slot_temperature": "Unbekannter Temperaturname. Erlaubte Werte: eco, normal, warm. Stelle: {location}",
+      "invalid_band": "Unbekanntes Band. Erlaubte Werte: eco, normal, warm. Stelle: {location}",
       "invalid_day": "Erlaubte Tage: mon, tue, wed, thu, fri, sat, sun. Stelle: {location}",
       "overlapping_slots": "Zeitfenster überschneiden sich am selben Tag. Stelle: {location}",
       "schedule_send_failed": "Zeitplan konnte nicht an das Modul gesendet werden.",
