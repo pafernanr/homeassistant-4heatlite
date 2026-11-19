@@ -134,7 +134,7 @@ QUERY_SCHEDULE = '["CCG","0"]'
 MINUTES_PER_DAY = 1440
 DAY_NAMES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 DAY_OFFSETS = {name: i * MINUTES_PER_DAY for i, name in enumerate(DAY_NAMES)}
-BAND_NAMES = ["off", "eco", "comfort", "comfort2"]
+TEMPERATURE_NAMES = ["eco", "normal", "warm"]
 TEMP_SCALE = 10
 # The stove stores one schedule at a time, in one of two protocols.
 PROTOCOL_H24 = "h24"

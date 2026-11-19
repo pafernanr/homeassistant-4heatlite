@@ -320,7 +320,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         new_schedules = []
         for i, sched in enumerate(old_schedules):
             if sched is None:
-                sched = {"eco": 18, "comfort": 21, "comfort2": 23, "slots": []}
+                sched = {"temperatures": {"eco": 18, "normal": 21, "warm": 23}, "slots": []}
             sched = dict(sched)
             sched["name"] = f"Schedule {i + 1}"
             sched["active"] = old_active == i

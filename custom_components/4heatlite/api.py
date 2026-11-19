@@ -7,7 +7,7 @@ import threading
 import time
 
 from .const import (
-    BAND_NAMES,
+    TEMPERATURE_NAMES,
     CCS_PERIODS,
     CCS_SLOTS_PER_GROUP,
     CCS_WEEKDAYS,
@@ -416,14 +416,15 @@ class FourHeatLiteApi:
     ) -> list:
         """Build H24 command with no active slots (two OFF transitions)."""
         if schedule:
-            eco = int(round(schedule.get("eco", 18) * TEMP_SCALE))
-            comfort = int(round(schedule.get("comfort", 22) * TEMP_SCALE))
-            comfort2 = int(round(schedule.get("comfort2", 24) * TEMP_SCALE))
+            temps = schedule.get("temperatures") or {}
+            temp_eco = int(round(temps.get("eco", 18) * TEMP_SCALE))
+            temp_normal = int(round(temps.get("normal", 22) * TEMP_SCALE))
+            temp_warm = int(round(temps.get("warm", 24) * TEMP_SCALE))
         else:
-            eco, comfort, comfort2 = 180, 220, 240
+            temp_eco, temp_normal, temp_warm = 180, 220, 240
         return [
             "H24", "9", "#13", str(program_index),
-            str(eco), str(comfort), str(comfort2),
+            str(temp_eco), str(temp_normal), str(temp_warm),
             "0", "0", "0", "0",
         ]
 
@@ -518,10 +519,10 @@ class FourHeatLiteApi:
                         start, end, day,
                     )
                     continue
-                enabled = str(check) == "1"
-                if start == end == "00:00" and not enabled:
+                active = str(check) == "1"
+                if start == end == "00:00" and not active:
                     continue
-                slots.append({"from": start, "to": end, "enabled": enabled})
+                slots.append({"from": start, "to": end, "active": active})
             days[day] = slots
 
         result: dict = {"protocol": PROTOCOL_CCS, "period": period}
@@ -562,7 +563,7 @@ class FourHeatLiteApi:
                     data.extend([
                         f"{start // 60:02d}:{start % 60:02d}",
                         f"{end // 60:02d}:{end % 60:02d}",
-                        "1" if slots[j].get("enabled", True) else "0",
+                        "1" if slots[j].get("active", True) else "0",
                     ])
                 else:
                     data.extend(["00:00", "00:00", "0"])
@@ -595,7 +596,7 @@ class FourHeatLiteApi:
             return "invalid_schedule"
         if len(slots) > CCS_SLOTS_PER_GROUP:
             return "too_many_slots"
-        enabled_ranges = []
+        active_ranges = []
         for n, slot in enumerate(slots, 1):
             if not isinstance(slot, dict):
                 return FourHeatLiteApi._where(where, f"slot {n}", "invalid_schedule")
@@ -608,14 +609,14 @@ class FourHeatLiteApi:
             end = FourHeatLiteApi._time_to_minutes(slot.get("to"))
             if start is None or end is None or start >= end:
                 return FourHeatLiteApi._where(where, f"slot {n}", "invalid_time")
-            enabled = slot.get("enabled", True)
-            if not isinstance(enabled, bool):
+            active = slot.get("active", True)
+            if not isinstance(active, bool):
                 return FourHeatLiteApi._where(where, f"slot {n}", "invalid_schedule")
-            if enabled:
-                enabled_ranges.append((start, end))
-        enabled_ranges.sort()
-        for i in range(len(enabled_ranges) - 1):
-            if enabled_ranges[i][1] > enabled_ranges[i + 1][0]:
+            if active:
+                active_ranges.append((start, end))
+        active_ranges.sort()
+        for i in range(len(active_ranges) - 1):
+            if active_ranges[i][1] > active_ranges[i + 1][0]:
                 return "overlapping_slots"
         return None
 
@@ -653,8 +654,8 @@ class FourHeatLiteApi:
     def default_schedule_entries(protocol: str) -> list[dict]:
         """Disabled example entries for a protocol."""
 
-        def slot(start, end, enabled=True):
-            return {"from": start, "to": end, "enabled": enabled}
+        def slot(start, end, active=True):
+            return {"from": start, "to": end, "active": active}
 
         if protocol == PROTOCOL_CCS:
             return [
@@ -694,27 +695,25 @@ class FourHeatLiteApi:
             {
                 "name": "Example H24",
                 "active": False,
-                "eco": 18,
-                "comfort": 21,
-                "comfort2": 23,
+                "temperatures": {"eco": 18, "normal": 21, "warm": 23},
                 "slots": [
                     {
                         "days": weekdays,
                         "from": "06:30",
                         "to": "08:30",
-                        "band": "comfort",
+                        "temperature": "normal",
                     },
                     {
                         "days": list(weekdays),
                         "from": "18:00",
                         "to": "22:00",
-                        "band": "comfort2",
+                        "temperature": "warm",
                     },
                     {
                         "days": ["sat", "sun"],
                         "from": "08:00",
                         "to": "23:00",
-                        "band": "comfort",
+                        "temperature": "normal",
                     },
                 ],
             }
@@ -737,9 +736,7 @@ class FourHeatLiteApi:
             entry = {
                 "name": "Stove",
                 "active": bool(parsed["slots"]),
-                "eco": parsed["eco"],
-                "comfort": parsed["comfort"],
-                "comfort2": parsed["comfort2"],
+                "temperatures": parsed["temperatures"],
                 "slots": parsed["slots"],
             }
             if entry["active"] and FourHeatLiteApi.validate_schedule(entry):
@@ -863,13 +860,13 @@ class FourHeatLiteApi:
 
     SCHEDULE_KEYS = {
         PROTOCOL_H24: (
-            {"name", "active", "eco", "comfort", "comfort2", "slots"},
-            {"days", "from", "to", "band"},
+            {"name", "active", "temperatures", "slots"},
+            {"days", "from", "to", "temperature"},
         ),
         PROTOCOL_CCS: (
             {"name", "active", "period", "daily_slots", "weekly_slots",
              "workday_slots", "weekend_slots"},
-            {"from", "to", "enabled"},
+            {"from", "to", "active"},
         ),
     }
 
@@ -885,6 +882,11 @@ class FourHeatLiteApi:
             for key in entry:
                 if key not in entry_keys:
                     return key, (i, key)
+            temps = entry.get("temperatures")
+            if protocol == PROTOCOL_H24 and isinstance(temps, dict):
+                for key in temps:
+                    if key not in TEMPERATURE_NAMES:
+                        return key, (i, "temperatures", key)
             groups = []
             if protocol == PROTOCOL_H24:
                 groups.append(("slots", entry.get("slots")))
@@ -1009,19 +1011,19 @@ class FourHeatLiteApi:
         offset = 1 if str(response[2]).startswith("#") else 0
         try:
             program_index = int(response[2 + offset])
-            eco_raw = int(response[3 + offset])
-            comfort_raw = int(response[4 + offset])
-            comfort2_raw = int(response[5 + offset])
+            temp_eco_raw = int(response[3 + offset])
+            temp_normal_raw = int(response[4 + offset])
+            temp_warm_raw = int(response[5 + offset])
         except (ValueError, IndexError):
             return None
 
-        band_map = {}
-        if eco_raw:
-            band_map[eco_raw] = "eco"
-        if comfort_raw:
-            band_map[comfort_raw] = "comfort"
-        if comfort2_raw:
-            band_map[comfort2_raw] = "comfort2"
+        name_map = {}
+        if temp_eco_raw:
+            name_map[temp_eco_raw] = "eco"
+        if temp_normal_raw:
+            name_map[temp_normal_raw] = "normal"
+        if temp_warm_raw:
+            name_map[temp_warm_raw] = "warm"
 
         transitions = []
         start_idx = 6 + offset
@@ -1034,23 +1036,23 @@ class FourHeatLiteApi:
             transitions.append((minute, temp))
 
         slots_raw = []
-        current_band = None
+        current_name = None
         slot_start = None
         for minute, temp in transitions:
-            band = band_map.get(temp)
-            if band and current_band is None:
-                current_band = band
+            tname = name_map.get(temp)
+            if tname and current_name is None:
+                current_name = tname
                 slot_start = minute
-            elif (band is None or band != current_band) and current_band is not None:
-                slots_raw.append((slot_start, minute, current_band))
-                if band:
-                    current_band = band
+            elif (tname is None or tname != current_name) and current_name is not None:
+                slots_raw.append((slot_start, minute, current_name))
+                if tname:
+                    current_name = tname
                     slot_start = minute
                 else:
-                    current_band = None
+                    current_name = None
                     slot_start = None
-        if current_band is not None and slot_start is not None:
-            slots_raw.append((slot_start, MINUTES_PER_DAY * 7, current_band))
+        if current_name is not None and slot_start is not None:
+            slots_raw.append((slot_start, MINUTES_PER_DAY * 7, current_name))
 
         def _minute_to_day_time(m):
             day_idx = m // MINUTES_PER_DAY
@@ -1059,20 +1061,20 @@ class FourHeatLiteApi:
             return day, f"{day_m // 60:02d}:{day_m % 60:02d}"
 
         day_slots = {}
-        for start_m, end_m, band in slots_raw:
+        for start_m, end_m, tname in slots_raw:
             day, start_t = _minute_to_day_time(start_m)
             _, end_t = _minute_to_day_time(end_m)
-            key = (start_t, end_t, band)
+            key = (start_t, end_t, tname)
             day_slots.setdefault(key, []).append(day)
 
         slots = []
-        for (start_t, end_t, band), days in day_slots.items():
+        for (start_t, end_t, tname), days in day_slots.items():
             ordered = [d for d in DAY_NAMES if d in days]
             slots.append({
                 "days": ordered,
                 "from": start_t,
                 "to": end_t,
-                "band": band,
+                "temperature": tname,
             })
         slots.sort(key=lambda s: (
             DAY_OFFSETS.get(s["days"][0], 0) if s["days"] else 0,
@@ -1082,30 +1084,33 @@ class FourHeatLiteApi:
         return {
             "protocol": PROTOCOL_H24,
             "program_index": program_index,
-            "eco": eco_raw / TEMP_SCALE,
-            "comfort": comfort_raw / TEMP_SCALE,
-            "comfort2": comfort2_raw / TEMP_SCALE,
+            "temperatures": {
+                "eco": temp_eco_raw / TEMP_SCALE,
+                "normal": temp_normal_raw / TEMP_SCALE,
+                "warm": temp_warm_raw / TEMP_SCALE,
+            },
             "slots": slots,
         }
 
     @staticmethod
     def build_schedule_command(schedule: dict, program_index: int = 0) -> list:
         """Encode a user-facing schedule dict into an H24 command array."""
-        eco_raw = int(round(schedule["eco"] * TEMP_SCALE))
-        comfort_raw = int(round(schedule["comfort"] * TEMP_SCALE))
-        comfort2_raw = int(round(schedule["comfort2"] * TEMP_SCALE))
+        temps = schedule["temperatures"]
+        temp_eco_raw = int(round(temps["eco"] * TEMP_SCALE))
+        temp_normal_raw = int(round(temps["normal"] * TEMP_SCALE))
+        temp_warm_raw = int(round(temps["warm"] * TEMP_SCALE))
 
-        band_to_temp = {
+        name_to_temp = {
             "off": 0,
-            "eco": eco_raw,
-            "comfort": comfort_raw,
-            "comfort2": comfort2_raw,
+            "eco": temp_eco_raw,
+            "normal": temp_normal_raw,
+            "warm": temp_warm_raw,
         }
 
         events = []
         for slot in schedule.get("slots", []):
-            band = slot["band"]
-            temp = band_to_temp.get(band, 0)
+            tname = slot["temperature"]
+            temp = name_to_temp.get(tname, 0)
             start_parts = slot["from"].split(":")
             end_parts = slot["to"].split(":")
             start_offset = int(start_parts[0]) * 60 + int(start_parts[1])
@@ -1140,7 +1145,7 @@ class FourHeatLiteApi:
         count = len(deduped) * 2 + 5
         return [
             "H24", str(count), "#13", str(program_index),
-            str(eco_raw), str(comfort_raw), str(comfort2_raw),
+            str(temp_eco_raw), str(temp_normal_raw), str(temp_warm_raw),
             *data,
         ]
 
@@ -1150,16 +1155,25 @@ class FourHeatLiteApi:
         if not isinstance(data, dict):
             return "invalid_schedule"
 
-        for key in ("eco", "comfort", "comfort2"):
-            val = data.get(key)
+        temps = data.get("temperatures")
+        if not isinstance(temps, dict):
+            if temps is None:
+                if where is not None:
+                    where.append('missing "temperatures"')
+                return "missing_key"
+            return FourHeatLiteApi._where(where, "temperatures", "invalid_schedule")
+        for key in TEMPERATURE_NAMES:
+            val = temps.get(key)
             if val is None:
-                return FourHeatLiteApi._where(where, key, "invalid_schedule")
+                if where is not None:
+                    where.append(f'missing "{key}"')
+                return FourHeatLiteApi._where(where, "temperatures", "missing_key")
             try:
                 val = float(val)
             except (TypeError, ValueError):
-                return FourHeatLiteApi._where(where, key, "invalid_temperature")
+                return FourHeatLiteApi._where(where, f"temperatures, {key}", "invalid_temperature")
             if not 10.0 <= val <= 40.0:
-                return FourHeatLiteApi._where(where, key, "invalid_temperature")
+                return FourHeatLiteApi._where(where, f"temperatures, {key}", "invalid_temperature")
 
         slots = data.get("slots")
         if not isinstance(slots, list):
@@ -1201,9 +1215,15 @@ class FourHeatLiteApi:
             if start_m >= end_m:
                 return FourHeatLiteApi._where(where, f"slot {n}", "invalid_time")
 
-            band = slot.get("band", "")
-            if band not in BAND_NAMES or band == "off":
-                return FourHeatLiteApi._where(where, f"slot {n}", "invalid_schedule")
+            tname = slot.get("temperature")
+            if tname is None:
+                if where is not None:
+                    where.append('missing "temperature"')
+                return FourHeatLiteApi._where(where, f"slot {n}", "missing_key")
+            if tname not in TEMPERATURE_NAMES:
+                if where is not None:
+                    where.append(f'temperature "{tname}"')
+                return FourHeatLiteApi._where(where, f"slot {n}", "invalid_slot_temperature")
 
             for d in days:
                 day_intervals.setdefault(d, []).append((start_m, end_m))

@@ -41,9 +41,9 @@ Used by the "Heating" page in the mobile app. Defines temperature bands (ECO, CO
 | `count` | Total elements after `H24` and `count`: `(pairs × 2) + 5`. The 5 = `#register`, `program_index`, `ECO`, `COMFORT`, `COMFORT2` |
 | `#<register>` | Register reference (e.g., `#13`). The `#` prefix indicates new format |
 | `program_index` | Schedule slot (0, 1, or 2). The app stores 3 schedules locally and sends the active slot's index here |
-| `ECO` | ECO temperature value (raw, divided by 10 for °C) |
-| `COMFORT` | COMFORT temperature value |
-| `COMFORT2` | COMFORT2 temperature value |
+| `ECO` | ECO temperature value (raw, divided by 10 for °C). YAML: `temperatures.eco` |
+| `COMFORT` | COMFORT temperature value. YAML: `temperatures.normal` |
+| `COMFORT2` | COMFORT2 temperature value. YAML: `temperatures.warm` |
 | pairs | `(minute_in_week, temperature)` — transitions through the week |
 
 **Minutes are counted from Monday 00:00.** Each day has 1440 minutes:
@@ -60,9 +60,11 @@ Used by the "Heating" page in the mobile app. Defines temperature bands (ECO, CO
 
 Temperature values in the pairs match one of the defined bands (ECO, COMFORT, COMFORT2) or `0` for OFF. The module switches to the specified temperature at each minute mark.
 
+In the integration's YAML the three temperatures are `temperatures: {eco, normal, warm}` (ECO, COMFORT, COMFORT2 respectively) and each slot's `temperature` is one of `eco`, `normal` or `warm`. When the schedule is read from the stove, temperatures are matched by value, so two bands set to the same temperature cannot be told apart and are shown as the first matching name. Only known keys are accepted. An unknown key (also inside `temperatures`) is reported as `Unexpected key "x" on line N` (line in the options editor); a missing required key as "A required key is missing" with its location (e.g. `temperatures, missing "eco"`); an unknown `temperature` value as "Unknown temperature name" with its location; temperatures outside 10-40 °C as an invalid temperature error.
+
 #### Example
 
-A schedule with 57 event pairs (4 daily comfort slots × 7 days, plus day-start OFF transitions):
+A schedule with 57 event pairs (4 daily COMFORT slots × 7 days, plus day-start OFF transitions):
 
 ```
 ["H24","119","#13","1","180","230","240",
@@ -151,7 +153,7 @@ The queue response must use compact JSON (`separators=(",",":")`) to fit within 
 
 The mobile app disables the schedule by sending a CCS command with `period=0`, which overwrites whatever schedule is active (including H24) with a disabled CCS. The app caches the schedule locally and re-sends it to re-enable.
 
-**Disabling:** `["H24",...]` with two OFF transitions is used when H24 is the selected protocol (the app itself uses CCS `period=0`). When CCS is the selected protocol the integration sends the CCS disable command with `period=0` and empty slots, in the same format as the app. The ECO/COMFORT/COMFORT2 temperatures of the previous H24 schedule are preserved in the H24 form:
+**Disabling:** `["H24",...]` with two OFF transitions is used when H24 is the selected protocol (the app itself uses CCS `period=0`). When CCS is the selected protocol the integration sends the CCS disable command with `period=0` and empty slots, in the same format as the app. The `temperatures` of the previous H24 schedule are preserved in the H24 form:
 
 ```
 ["H24","9","#13","0","<ECO>","<COMFORT>","<COMFORT2>","0","0","0","0"]

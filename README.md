@@ -163,39 +163,45 @@ See [Scheduling](docs/SCHEDULING.md) for the H24/CCS protocol details.
 
 > **Warning:** the stove stores only one schedule (H24 or CCS) at a time. Selecting the other protocol replaces the schedule stored on the stove. If the stove does not support the protocol it rejects the write, the previous schedule is kept and an error is shown.
 
+Only the keys shown in the examples are accepted. Validation errors name the problem and where it is: an unknown key is reported as `Unexpected key "x" on line N`, other errors (missing key, bad time, unknown temperature name) show the entry name and slot number.
+
 Choose the protocol with the **Schedule Protocol** radio button (Off / H24 / CCS). Step 2 of the options screen then shows only the YAML list of that protocol, a plain list of entries.
 
 #### H24 example
 
+`temperatures` defines the three temperatures (°C): `eco`, `normal` and `warm`. Each slot's `temperature` is one of those three names and selects which temperature applies; any other value is rejected with an "Unknown temperature name" error.
+
 ```yaml
 - name: Autumn
   active: false
-  eco: 18
-  comfort: 21
-  comfort2: 23
+  temperatures:
+    eco: 18
+    normal: 21
+    warm: 23
   slots:
     - days: [mon, tue, wed, thu, fri]
       from: '06:30'
       to: '08:30'
-      band: comfort
+      temperature: normal
     - days: [mon, tue, wed, thu, fri]
       from: '18:00'
       to: '22:00'
-      band: comfort2
+      temperature: warm
     - days: [sat, sun]
       from: '08:00'
       to: '23:00'
-      band: comfort
+      temperature: normal
 - name: Winter
   active: false
-  eco: 18
-  comfort: 21
-  comfort2: 23
+  temperatures:
+    eco: 18
+    normal: 21
+    warm: 23
   slots:
     - days: [mon, tue, wed, thu, fri]
       from: '06:00'
       to: '20:00'
-      band: comfort
+      temperature: normal
 ```
 
 #### CCS example
@@ -207,34 +213,34 @@ Max 3 slots per group.
   active: false
   period: weekly
   weekly_slots:
-    - {from: '08:00', to: '10:00', enabled: true}
-    - {from: '13:00', to: '15:00', enabled: true}
-    - {from: '19:30', to: '21:30', enabled: true}
+    - {from: '08:00', to: '10:00', active: true}
+    - {from: '13:00', to: '15:00', active: true}
+    - {from: '19:30', to: '21:30', active: true}
 - name: weekend (Mon-Fri / Sat-Sun)
   active: false
   period: weekend
   workday_slots:
-    - {from: '06:30', to: '08:30', enabled: true}
-    - {from: '18:00', to: '22:00', enabled: true}
+    - {from: '06:30', to: '08:30', active: true}
+    - {from: '18:00', to: '22:00', active: true}
   weekend_slots:
-    - {from: '08:00', to: '23:00', enabled: true}
+    - {from: '08:00', to: '23:00', active: true}
 - name: daily (per day)
   active: false
   period: daily           # omitted days are disabled
   daily_slots:
     mon:
-      - {from: '06:30', to: '08:30', enabled: true}
+      - {from: '06:30', to: '08:30', active: true}
     sat:
-      - {from: '08:00', to: '23:00', enabled: true}
+      - {from: '08:00', to: '23:00', active: true}
     sun:
-      - {from: '08:00', to: '23:00', enabled: true}
+      - {from: '08:00', to: '23:00', active: true}
 - name: weekly vacation (same every day)
   active: false
   period: weekly
   weekly_slots:
-    - {from: '08:00', to: '10:00', enabled: false}
-    - {from: '13:00', to: '15:00', enabled: false}
-    - {from: '19:30', to: '21:30', enabled: true}
+    - {from: '08:00', to: '10:00', active: false}
+    - {from: '13:00', to: '15:00', active: false}
+    - {from: '19:30', to: '21:30', active: true}
 ```
 
 A list may hold several entries (e.g. Autumn and Winter), but exactly one must have `active: true`. That entry is sent to the stove on save. Choose **Off** to disable the schedule; the lists stay unchanged.
