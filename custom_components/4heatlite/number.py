@@ -8,7 +8,7 @@ from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import AUTO_MANUAL_MAX, AUTO_VALUE, DATA_COORDINATOR, DOMAIN
+from .const import DATA_COORDINATOR, DOMAIN
 from .coordinator import FourHeatLiteCoordinator
 from .sensor import FourHeatLiteEntity
 
@@ -38,7 +38,6 @@ class SettingNumber(FourHeatLiteEntity, NumberEntity):
     _data_key: str
     _range_attr: str
     _command_attr: str
-    _default_range: tuple[int, int]
     _label: str
     _unique_suffix: str
     _has_auto = False
@@ -48,13 +47,13 @@ class SettingNumber(FourHeatLiteEntity, NumberEntity):
         self._attr_unique_id = f"{stove_name}_{self._unique_suffix}"
 
     def _range(self) -> tuple[int, int]:
-        return getattr(self.coordinator.api, self._range_attr) or self._default_range
+        return getattr(self.coordinator.api, self._range_attr)
 
     def _is_auto(self) -> bool:
         return (
             self._has_auto
             and self.coordinator.data is not None
-            and self.coordinator.data.get(self._data_key) == AUTO_VALUE
+            and self.coordinator.data.get(self._data_key) == self._range()[1]
         )
 
     @property
@@ -64,7 +63,7 @@ class SettingNumber(FourHeatLiteEntity, NumberEntity):
     @property
     def native_max_value(self) -> float:
         high = self._range()[1]
-        return min(high, AUTO_MANUAL_MAX) if self._has_auto else high
+        return high - 1 if self._has_auto else high
 
     @property
     def native_value(self):
@@ -108,6 +107,9 @@ class FanSettingNumber(SettingNumber):
     _label = "Room Fan"
     _unique_suffix = "fan_setting"
 
+    def _range(self) -> tuple[int, int]:
+        return self.coordinator.api.fan_setting_range or self._default_range
+
 
 class CombustionSettingNumber(SettingNumber):
     """The combustion setting (0e/016c): 1-6 manual, 7 = Auto."""
@@ -116,7 +118,6 @@ class CombustionSettingNumber(SettingNumber):
     _data_key = "power"
     _range_attr = "power_range"
     _command_attr = "build_power_command"
-    _default_range = (1, 7)
     _attr_translation_key = "combustion_setting"
     _label = "Combustion Level"
     _unique_suffix = "combustion_setting"
@@ -130,7 +131,6 @@ class HeatingSettingNumber(SettingNumber):
     _data_key = "heating_setting"
     _range_attr = "heating_setting_range"
     _command_attr = "build_heating_setting_command"
-    _default_range = (0, 7)
     _attr_translation_key = "heating_setting"
     _label = "Heating Level"
     _unique_suffix = "heating_setting"

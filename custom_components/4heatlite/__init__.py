@@ -8,7 +8,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
 from .api import FourHeatLiteApi
@@ -17,6 +17,10 @@ from .const import (
     CONF_CACHED_SCHEDULE,
     CONF_CACHED_SCHEDULES,
     CONF_DEVICE_ID,
+    CONF_HEATING_MAX,
+    CONF_HEATING_MIN,
+    CONF_POWER_MAX,
+    CONF_POWER_MIN,
     DEFAULT_FAN_REGISTER,
     CONF_MODULE_ADDRESS,
     CONF_PROXY_MODE,
@@ -91,6 +95,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = FourHeatLiteCoordinator(hass, host)
     coordinator.api.fan_register = DEFAULT_FAN_REGISTER
+    if CONF_POWER_MIN not in entry.data or CONF_HEATING_MIN not in entry.data:
+        power_range = await hass.async_add_executor_job(coordinator.api.query_power_range)
+        heating_range = await hass.async_add_executor_job(coordinator.api.query_heating_range)
+        if not power_range or not heating_range:
+            raise ConfigEntryNotReady("Could not read the power ranges from the stove")
+        hass.config_entries.async_update_entry(
+            entry,
+            data={
+                **entry.data,
+                CONF_POWER_MIN: power_range[0],
+                CONF_POWER_MAX: power_range[1],
+                CONF_HEATING_MIN: heating_range[0],
+                CONF_HEATING_MAX: heating_range[1],
+            },
+        )
+    coordinator.api.power_range = (entry.data[CONF_POWER_MIN], entry.data[CONF_POWER_MAX])
+    coordinator.api.heating_setting_range = (
+        entry.data[CONF_HEATING_MIN],
+        entry.data[CONF_HEATING_MAX],
+    )
 
     hass.data.setdefault(DOMAIN, {})
 

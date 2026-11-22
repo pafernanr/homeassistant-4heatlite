@@ -22,6 +22,10 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_DEVICE_ID,
     CONF_DEVICE_KEY,
+    CONF_HEATING_MAX,
+    CONF_HEATING_MIN,
+    CONF_POWER_MAX,
+    CONF_POWER_MIN,
     DEFAULT_FAN_REGISTER,
     CONF_MODULE_ADDRESS,
     CONF_PROXY_MODE,
@@ -132,6 +136,7 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors[CONF_HOST] = "already_configured"
                     break
 
+            power_range = heating_range = None
             if not errors:
                 resolved = await self._async_resolve_host(host)
                 api = FourHeatLiteApi(resolved)
@@ -142,6 +147,14 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors[CONF_HOST] = "cannot_connect"
                 else:
                     host = resolved
+                    power_range = await self.hass.async_add_executor_job(
+                        api.query_power_range
+                    )
+                    heating_range = await self.hass.async_add_executor_job(
+                        api.query_heating_range
+                    )
+                    if power_range is None or heating_range is None:
+                        errors[CONF_HOST] = "cannot_connect"
 
             device_key = ""
             if not errors:
@@ -165,6 +178,10 @@ class FourHeatLiteConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_NAME: user_input[CONF_NAME],
                         CONF_HOST: host,
                         CONF_DEVICE_KEY: device_key,
+                        CONF_POWER_MIN: power_range[0],
+                        CONF_POWER_MAX: power_range[1],
+                        CONF_HEATING_MIN: heating_range[0],
+                        CONF_HEATING_MAX: heating_range[1],
                     },
                     options={
                         CONF_PROXY_MODE: proxy_mode,

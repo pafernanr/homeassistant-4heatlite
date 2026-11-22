@@ -272,6 +272,28 @@ class FourHeatLiteApi:
         result = self.query_sensors()
         return result is not None
 
+    def _query_range(self, register: str) -> tuple[int, int] | None:
+        """Read a setting register and return its (min, max) from the record. None if no answer."""
+        hexdata = self._query(
+            f'["2WC","1","03{register}"]', min_hex_len=18, register=register
+        )
+        if not hexdata:
+            return None
+        _, low, high = self._decode_register(hexdata)
+        if not high:
+            return None
+        return low, high
+
+    def query_power_range(self) -> tuple[int, int] | None:
+        """Combustion setting range (0e/016c). Stored in the config entry at setup."""
+        self.power_range = self._query_range(REGISTER_POWER)
+        return self.power_range
+
+    def query_heating_range(self) -> tuple[int, int] | None:
+        """Heating setting range (0e/023f). Stored in the config entry at setup."""
+        self.heating_setting_range = self._query_range(REGISTER_HEATING)
+        return self.heating_setting_range
+
     @staticmethod
     def _decode_0310(hexdata: str, temp_divisor: int = 10) -> dict:
         """Decode the 0310 sensor response (19 bytes / 38 hex chars).
@@ -341,16 +363,18 @@ class FourHeatLiteApi:
     def build_power_command(self, level: int) -> list:
         """Build write command for combustion power level (register 0e/016c).
 
-        The level is clamped to the range the stove reports (1-6 on Jollymec),
-        1-7 until the register has been read.
+        The level is clamped to the range stored at setup (1..max).
+        None until the range is known.
         """
-        low, high = self.power_range or (1, 7)
+        if self.power_range is None:
+            return None
+        low, high = self.power_range
         level = max(low, min(high, level))
         frame = self._record_frame(REGISTER_POWER, level)
         if frame:
             return frame
         level_hex = f"{level:04x}"
-        data = f"050e016c{level_hex}0001000700"
+        data = f"050e016c{level_hex}0001{high:04x}00"
         return ["2WC", "1", data]
 
     def build_fan_setting_command(self, value: int) -> list | None:
@@ -371,9 +395,10 @@ class FourHeatLiteApi:
 
         None until the register has been read.
         """
-        if self.heating_setting_range:
-            low, high = self.heating_setting_range
-            value = max(low, min(high, value))
+        if self.heating_setting_range is None:
+            return None
+        low, high = self.heating_setting_range
+        value = max(low, min(high, value))
         return self._whole_record(REGISTER_HEATING, value)
 
     def decode_echo(self, records: list) -> dict:

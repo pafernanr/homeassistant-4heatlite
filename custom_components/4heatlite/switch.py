@@ -8,7 +8,7 @@ from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import AUTO_MANUAL_MAX, AUTO_VALUE, DATA_COORDINATOR, DOMAIN
+from .const import DATA_COORDINATOR, DOMAIN
 from .coordinator import FourHeatLiteCoordinator
 from .sensor import FourHeatLiteEntity
 
@@ -26,34 +26,39 @@ async def async_setup_entry(
         [
             AutoSwitch(
                 coordinator, stove_name, "combustion_auto", "power",
-                "build_power_command", "combustion_auto",
+                "build_power_command", "combustion_auto", "power_range",
             ),
             AutoSwitch(
                 coordinator, stove_name, "heating_auto", "heating_setting",
-                "build_heating_setting_command", "heating_auto",
+                "build_heating_setting_command", "heating_auto", "heating_setting_range",
             ),
         ]
     )
 
 
 class AutoSwitch(FourHeatLiteEntity, SwitchEntity):
-    """On sets the setting to Auto (7). Off restores the last manual value."""
+    """On sets the setting to Auto (the stored range max). Off restores the last manual value."""
 
     _attr_icon = "mdi:refresh-auto"
 
     def __init__(
-        self, coordinator, stove_name, translation_key, data_key, command_attr, unique_suffix
+        self, coordinator, stove_name, translation_key, data_key, command_attr,
+        unique_suffix, range_attr,
     ):
         super().__init__(coordinator, stove_name)
         self._data_key = data_key
         self._command_attr = command_attr
+        self._range_attr = range_attr
         self._attr_translation_key = translation_key
         self._attr_unique_id = f"{stove_name}_{unique_suffix}"
-        self._last_manual = AUTO_MANUAL_MAX
+        self._last_manual: int | None = None
+
+    def _auto_value(self) -> int:
+        return getattr(self.coordinator.api, self._range_attr)[1]
 
     def _handle_coordinator_update(self) -> None:
         value = self.coordinator.data.get(self._data_key) if self.coordinator.data else None
-        if value is not None and value != AUTO_VALUE:
+        if value is not None and value != self._auto_value():
             self._last_manual = value
         super()._handle_coordinator_update()
 
@@ -64,7 +69,7 @@ class AutoSwitch(FourHeatLiteEntity, SwitchEntity):
         value = self.coordinator.data.get(self._data_key)
         if value is None:
             return None
-        return value == AUTO_VALUE
+        return value == self._auto_value()
 
     @property
     def available(self) -> bool:
@@ -73,10 +78,11 @@ class AutoSwitch(FourHeatLiteEntity, SwitchEntity):
         )
 
     async def async_turn_on(self, **kwargs) -> None:
-        await self._send(AUTO_VALUE)
+        await self._send(self._auto_value())
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self._send(self._last_manual)
+        manual = self._last_manual if self._last_manual is not None else self._auto_value() - 1
+        await self._send(manual)
 
     async def _send(self, value: int) -> None:
         cmd = getattr(self.coordinator.api, self._command_attr)(value)

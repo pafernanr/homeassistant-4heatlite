@@ -88,6 +88,10 @@ ERROR_KEYS = {
 CONF_DEVICE_ID = "device_id"
 CONF_DEVICE_KEY = "device_key"
 CONF_MODULE_ADDRESS = "module_address"
+CONF_POWER_MIN = "power_min"
+CONF_POWER_MAX = "power_max"
+CONF_HEATING_MIN = "heating_min"
+CONF_HEATING_MAX = "heating_max"
 CONF_PROXY_MODE = "proxy_mode"
 CONF_SCHEDULE_ENABLED = "schedule_enabled"  # v2 migration only
 CONF_CACHED_SCHEDULE = "cached_schedule"  # v2 migration only
@@ -155,9 +159,7 @@ WRITE_FUNCTION = "05"
 REGISTER_TEMP = "12005a"
 REGISTER_POWER = "0e016c"
 REGISTER_HEATING = "0e023f"
-# Combustion and heating: 7 is Auto, manual steps stop at AUTO_MANUAL_MAX.
-AUTO_VALUE = 7
-AUTO_MANUAL_MAX = 6
+
 TEMP_MIN_RAW = 0x0064
 TEMP_MAX_RAW = 0x0190
 TEMP_WRITE_SUFFIX = "0001000100"

@@ -78,7 +78,7 @@ class StoveClimate(CoordinatorEntity, ClimateEntity):
 
     @property
     def preset_modes(self):
-        low, high = self.coordinator.api.power_range or (1, 7)
+        low, high = self.coordinator.api.power_range
         return [f"Power {i}" for i in range(low, high + 1)]
 
     @property
